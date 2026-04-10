@@ -176,3 +176,4 @@ outputs/
 
 # Executable files
 *.exe
+.b2t/

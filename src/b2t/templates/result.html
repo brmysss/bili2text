@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>bili2text result</title>
+</head>
+<body>
+  <main>
+    <h1>转写完成</h1>
+    <p><a href="/">返回首页</a></p>
+
+    <section>
+      <h2>结果文件</h2>
+      <p>Transcript: {{ result.transcript_path }}</p>
+      <p>Metadata: {{ result.metadata_path }}</p>
+      <p>Audio: {{ result.audio_path }}</p>
+      {% if result.video_path %}
+      <p>Video: {{ result.video_path }}</p>
+      {% endif %}
+    </section>
+
+    <section>
+      <h2>文本</h2>
+      <pre>{{ result.text }}</pre>
+    </section>
+  </main>
+</body>
+</html>
