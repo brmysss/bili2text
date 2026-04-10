@@ -11,7 +11,7 @@ from rich.panel import Panel
 
 from b2t.config import Settings
 from b2t.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, tr
-from b2t.user_config import ALL_PROVIDERS, AppConfig
+from b2t.user_config import ALL_FEATURES, ALL_PROVIDERS, AppConfig
 
 
 def uv_available(which=shutil.which) -> bool:
@@ -64,10 +64,37 @@ def sync_selected_environment(
     )
 
 
+def sync_environment_for_config(
+    *,
+    project_root: Path,
+    config: AppConfig,
+    which=shutil.which,
+    runner=subprocess.run,
+) -> BootstrapEnvironmentResult:
+    extras = collect_required_extras(
+        providers=config.enabled_providers,
+        features=config.enabled_features,
+    )
+    return sync_selected_environment(
+        workspace=project_root,
+        extras=extras,
+        which=which,
+        runner=runner,
+    )
+
+
 def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
     config = AppConfig.load(settings)
+    project_root = _find_project_root()
     if not interactive:
-        config.save(settings)
+        _sync_and_report(
+            console=Console(),
+            project_root=project_root,
+            config=config,
+            language=config.language,
+            save_settings=settings,
+            auto_confirm=True,
+        )
         return config
 
     console = Console()
@@ -122,7 +149,31 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
     ).execute()
     config.enabled_providers = selected_providers
 
-    # ── 3. Configure each selected provider ──────────────────
+    # ── 3. Features (checkbox) ───────────────────────────────
+    console.print()
+    feature_choices = [
+        {
+            "name": f"web       — {tr(lang, 'feature_web_short')}",
+            "value": "web",
+            "enabled": "web" in config.enabled_features,
+        },
+        {
+            "name": f"server    — {tr(lang, 'feature_server_short')}",
+            "value": "server",
+            "enabled": "server" in config.enabled_features,
+        },
+        {
+            "name": f"window    — {tr(lang, 'feature_window_short')}",
+            "value": "window",
+            "enabled": "window" in config.enabled_features,
+        },
+    ]
+    config.enabled_features = inquirer.checkbox(
+        message=tr(lang, "bootstrap_features_prompt"),
+        choices=feature_choices,
+    ).execute()
+
+    # ── 4. Configure each selected provider ──────────────────
     for provider in selected_providers:
         console.print()
         console.rule(f"[bold cyan]{tr(lang, f'provider_{provider}_name')}[/bold cyan]")
@@ -136,7 +187,7 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
         elif provider == "volcengine":
             _configure_volcengine(config, lang)
 
-    # ── 4. Pick default provider ─────────────────────────────
+    # ── 5. Pick default provider ─────────────────────────────
     console.print()
     if len(selected_providers) == 1:
         config.default_provider = selected_providers[0]
@@ -151,11 +202,13 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
             default=config.default_provider if config.default_provider in selected_providers else selected_providers[0],
         ).execute()
 
-    # ── Save ─────────────────────────────────────────────────
-    config.save(settings)
-    console.print()
-    console.print(f"[green]{tr(lang, 'bootstrap_saved', path=settings.config_path)}[/green]")
-    console.print(tr(lang, "bootstrap_finish"))
+    _sync_and_report(
+        console=console,
+        project_root=project_root,
+        config=config,
+        language=lang,
+        save_settings=settings,
+    )
     return config
 
 
@@ -240,3 +293,80 @@ def _configure_volcengine(config: AppConfig, lang: str) -> None:
         message=tr(lang, "bootstrap_volc_itn_prompt"),
         default=config.volcengine.use_itn,
     ).execute()
+
+
+def _sync_and_report(
+    *,
+    console: Console,
+    project_root: Path,
+    config: AppConfig,
+    language: str,
+    save_settings: Settings,
+    auto_confirm: bool = False,
+) -> None:
+    extras = collect_required_extras(
+        providers=config.enabled_providers,
+        features=config.enabled_features,
+    )
+    command = build_uv_sync_command(workspace=project_root, extras=extras)
+    features = ", ".join(config.enabled_features) if config.enabled_features else "cli"
+    extras_text = ", ".join(extras) if extras else "(none)"
+    console.print()
+    console.print(
+        Panel.fit(
+            tr(
+                language,
+                "bootstrap_sync_summary",
+                providers=", ".join(config.enabled_providers),
+                features=features,
+                extras=extras_text,
+                command=" ".join(command),
+            ),
+            title=tr(language, "bootstrap_sync_summary_title"),
+            border_style="cyan",
+        )
+    )
+
+    should_sync = auto_confirm or inquirer.confirm(
+        message=tr(language, "bootstrap_sync_confirm"),
+        default=True,
+    ).execute()
+
+    if not should_sync:
+        config.save(save_settings)
+        console.print(f"[green]{tr(language, 'bootstrap_saved', path=save_settings.config_path)}[/green]")
+        console.print(f"[yellow]{tr(language, 'bootstrap_sync_skipped')}[/yellow]")
+        console.print(tr(language, "bootstrap_finish"))
+        return
+
+    result = sync_environment_for_config(project_root=project_root, config=config)
+    config.save(save_settings)
+
+    console.print(f"[green]{tr(language, 'bootstrap_saved', path=save_settings.config_path)}[/green]")
+    if result.reason == "missing_uv":
+        console.print(f"[yellow]{tr(language, 'bootstrap_uv_missing')}[/yellow]")
+        console.print(f"[yellow]{tr(language, 'bootstrap_partial_saved')}[/yellow]")
+        console.print(tr(language, "bootstrap_uv_install_hint"))
+        console.print(" ".join(result.command))
+        return
+
+    if result.ok:
+        console.print(f"[green]{tr(language, 'bootstrap_sync_success')}[/green]")
+        console.print(tr(language, "bootstrap_finish"))
+        return
+
+    console.print(f"[red]{tr(language, 'bootstrap_sync_failed')}[/red]")
+    console.print(f"[yellow]{tr(language, 'bootstrap_partial_saved')}[/yellow]")
+    if result.stdout.strip():
+        console.print(result.stdout.strip())
+    if result.stderr.strip():
+        console.print(result.stderr.strip())
+    console.print(" ".join(result.command))
+
+
+def _find_project_root(start: Path | None = None) -> Path:
+    current = (start or Path.cwd()).resolve()
+    for candidate in (current, *current.parents):
+        if (candidate / "pyproject.toml").exists():
+            return candidate
+    return current

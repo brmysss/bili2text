@@ -3,9 +3,11 @@ from pathlib import Path
 from b2t.bootstrap import (
     build_uv_sync_command,
     collect_required_extras,
+    sync_environment_for_config,
     sync_selected_environment,
     uv_available,
 )
+from b2t.user_config import AppConfig
 
 
 def test_collect_required_extras_combines_providers_and_features() -> None:
@@ -68,3 +70,29 @@ def test_sync_selected_environment_runs_uv_sync(tmp_path: Path) -> None:
     assert result.ok is True
     assert result.reason == "ok"
     assert calls == [["uv", "sync", "--extra", "whisper", "--extra", "web"]]
+
+
+def test_sync_environment_for_config_uses_saved_provider_and_feature_selection(tmp_path: Path) -> None:
+    config = AppConfig()
+    config.enabled_providers = ["sensevoice", "volcengine"]
+    config.enabled_features = ["window", "server"]
+
+    calls: list[list[str]] = []
+
+    class Completed:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def fake_runner(command, **kwargs):
+        calls.append(command)
+        return Completed()
+
+    result = sync_environment_for_config(
+        project_root=tmp_path,
+        config=config,
+        which=lambda _name: "C:/bin/uv.exe",
+        runner=fake_runner,
+    )
+    assert result.ok is True
+    assert calls == [["uv", "sync", "--extra", "sensevoice", "--extra", "volcengine", "--extra", "server"]]

@@ -32,3 +32,10 @@ def test_language_command_updates_workspace_config(tmp_path) -> None:
 
     config_text = (workspace / "config.json").read_text(encoding="utf-8")
     assert '"language": "en-US"' in config_text
+
+
+def test_bootstrap_sync_only_requires_existing_config(tmp_path) -> None:
+    workspace = tmp_path / ".b2t"
+    result = runner.invoke(app, ["bootstrap", "--sync-only", "--workspace", str(workspace)])
+    assert result.exit_code == 1
+    assert "请先运行一次 bootstrap" in result.stderr

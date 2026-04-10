@@ -103,10 +103,14 @@ def create_app(language: str = DEFAULT_LANGUAGE) -> typer.Typer:
     @app.command("init", hidden=True)
     def bootstrap(
         workspace: Path | None = typer.Option(None, "--workspace", help=tr(language, "opt_workspace_help")),
+        sync_only: bool = typer.Option(False, "--sync-only", help=tr(language, "bootstrap_sync_only")),
     ) -> None:
         """Create or update the local bili2text config."""
         settings = Settings.from_workspace(workspace)
-        run_bootstrap(settings=settings, interactive=True)
+        if sync_only and not settings.config_path.exists():
+            typer.secho(tr(_detect_preferred_language(workspace), "bootstrap_sync_only_missing_config"), err=True, fg=typer.colors.RED)
+            raise typer.Exit(code=1)
+        run_bootstrap(settings=settings, interactive=not sync_only)
 
     @app.command("web", help=tr(language, "cmd_web_help"))
     @app.command("ui", hidden=True)

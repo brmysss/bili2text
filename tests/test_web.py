@@ -71,4 +71,4 @@ def test_index_page_supports_english_language(tmp_path: Path) -> None:
     response = client.get("/")
     assert response.status_code == 200
     assert "BV / URL / local path" in response.text
-    assert "Transcribe" in response.text
+    assert "Start" in response.text
