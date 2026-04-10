@@ -24,7 +24,15 @@
           <input id="source" name="source" type="text" value="{{ values.source }}" required>
         </p>
         <p>
-          <label for="model">Whisper 模型</label><br>
+          <label for="provider">Provider</label><br>
+          <select id="provider" name="provider">
+            <option value="whisper" {% if values.provider == "whisper" %}selected{% endif %}>whisper</option>
+            <option value="sensevoice" {% if values.provider == "sensevoice" %}selected{% endif %}>sensevoice</option>
+            <option value="volcengine" {% if values.provider == "volcengine" %}selected{% endif %}>volcengine</option>
+          </select>
+        </p>
+        <p>
+          <label for="model">Model / Provider Identifier</label><br>
           <input id="model" name="model" type="text" value="{{ values.model }}">
         </p>
         <p>

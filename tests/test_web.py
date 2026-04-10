@@ -7,8 +7,9 @@ from b2t.web import create_app
 
 
 class FakePipeline:
-    def __init__(self, tmp_path: Path, model: str) -> None:
+    def __init__(self, tmp_path: Path, provider: str, model: str) -> None:
         self.tmp_path = tmp_path
+        self.provider = provider
         self.model = model
 
     def transcribe(self, source: str, *, prompt: str | None = None, output: Path | None = None) -> TranscriptResult:
@@ -18,7 +19,7 @@ class FakePipeline:
         metadata_path.write_text("{}", encoding="utf-8")
         return TranscriptResult(
             source=SourceRef(raw_input=source, kind="bilibili", display_name="demo", url=source, bv="BV1xx411c7XD"),
-            engine="whisper",
+            engine=self.provider,
             model=self.model,
             text="demo text",
             audio_path=self.tmp_path / "demo.wav",
@@ -29,24 +30,26 @@ class FakePipeline:
 
 
 def test_index_page_renders_form(tmp_path: Path) -> None:
-    app = create_app(lambda model: FakePipeline(tmp_path, model), default_model="base")
+    app = create_app(lambda provider, model: FakePipeline(tmp_path, provider, model), default_provider="sensevoice", default_model="base")
     client = TestClient(app)
 
     response = client.get("/")
     assert response.status_code == 200
     assert "BV / URL / 本地路径" in response.text
+    assert '<option value="sensevoice" selected>' in response.text
     assert 'value="base"' in response.text
 
 
 def test_transcribe_form_renders_result(tmp_path: Path) -> None:
-    app = create_app(lambda model: FakePipeline(tmp_path, model))
+    app = create_app(lambda provider, model: FakePipeline(tmp_path, provider, model))
     client = TestClient(app)
 
     response = client.post(
         "/transcribe",
-        data={"source": "https://www.bilibili.com/video/BV1xx411c7XD", "model": "tiny", "prompt": ""},
+        data={"source": "https://www.bilibili.com/video/BV1xx411c7XD", "provider": "sensevoice", "model": "tiny", "prompt": ""},
     )
     assert response.status_code == 200
     assert "转写完成" in response.text
     assert "demo text" in response.text
+    assert "sensevoice" in response.text
     assert "tiny" in response.text

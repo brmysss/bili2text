@@ -10,6 +10,7 @@ def test_cli_help_renders() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "CLI-first Bilibili to text toolkit." in result.stdout
+    assert "bootstrap" in result.stdout
     assert "transcribe" in result.stdout
     assert "window" in result.stdout
 

@@ -15,6 +15,7 @@ class Settings:
     audio_dir: Path
     transcripts_dir: Path
     metadata_dir: Path
+    config_path: Path
 
     @classmethod
     def from_workspace(cls, workspace: Path | None = None) -> "Settings":
@@ -25,6 +26,7 @@ class Settings:
             audio_dir=root / "audio",
             transcripts_dir=root / "transcripts",
             metadata_dir=root / "metadata",
+            config_path=root / "config.json",
         )
 
     def ensure_directories(self) -> None:

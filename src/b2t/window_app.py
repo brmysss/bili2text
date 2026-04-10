@@ -17,7 +17,8 @@ class WindowApp:
     def __init__(
         self,
         *,
-        pipeline_factory: Callable[[str, Path | None], B2TPipeline],
+        pipeline_factory: Callable[[str, str, Path | None], B2TPipeline],
+        default_provider: str = "whisper",
         default_model: str = "small",
         default_workspace: Path | None = None,
     ) -> None:
@@ -32,6 +33,7 @@ class WindowApp:
         self.root.minsize(840, 620)
 
         self.source_var = tk.StringVar()
+        self.provider_var = tk.StringVar(value=default_provider)
         self.model_var = tk.StringVar(value=default_model)
         self.workspace_var = tk.StringVar(value=str(default_workspace or Path(".b2t").resolve()))
         self.status_var = tk.StringVar(value="Ready")
@@ -58,27 +60,36 @@ class WindowApp:
 
         ttk.Button(top, text="Choose File", command=self._choose_file).grid(row=0, column=4, sticky="ew")
 
-        ttk.Label(top, text="Model").grid(row=1, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(top, text="Provider").grid(row=1, column=0, sticky="w", pady=(10, 0))
+        provider_box = ttk.Combobox(
+            top,
+            textvariable=self.provider_var,
+            values=["whisper", "sensevoice", "volcengine"],
+            state="readonly",
+        )
+        provider_box.grid(row=1, column=1, sticky="ew", padx=(8, 16), pady=(10, 0))
+
+        ttk.Label(top, text="Model").grid(row=1, column=2, sticky="w", pady=(10, 0))
         model_box = ttk.Combobox(
             top,
             textvariable=self.model_var,
             values=["tiny", "base", "small", "medium", "large"],
-            state="readonly",
+            state="normal",
         )
-        model_box.grid(row=1, column=1, sticky="ew", padx=(8, 16), pady=(10, 0))
+        model_box.grid(row=1, column=3, sticky="ew", padx=(8, 8), pady=(10, 0))
 
-        ttk.Label(top, text="Workspace").grid(row=1, column=2, sticky="w", pady=(10, 0))
+        ttk.Label(top, text="Workspace").grid(row=2, column=0, sticky="w", pady=(10, 0))
         workspace_entry = ttk.Entry(top, textvariable=self.workspace_var)
-        workspace_entry.grid(row=1, column=3, sticky="ew", padx=(8, 8), pady=(10, 0))
-        ttk.Button(top, text="Browse", command=self._choose_workspace).grid(row=1, column=4, sticky="ew", pady=(10, 0))
+        workspace_entry.grid(row=2, column=1, columnspan=3, sticky="ew", padx=(8, 8), pady=(10, 0))
+        ttk.Button(top, text="Browse", command=self._choose_workspace).grid(row=2, column=4, sticky="ew", pady=(10, 0))
 
-        ttk.Label(top, text="Prompt").grid(row=2, column=0, sticky="nw", pady=(10, 0))
+        ttk.Label(top, text="Prompt").grid(row=3, column=0, sticky="nw", pady=(10, 0))
         self.prompt_text = tk.Text(top, height=5, wrap="word")
-        self.prompt_text.grid(row=2, column=1, columnspan=4, sticky="nsew", padx=(8, 0), pady=(10, 0))
+        self.prompt_text.grid(row=3, column=1, columnspan=4, sticky="nsew", padx=(8, 0), pady=(10, 0))
         self.prompt_text.insert("1.0", "以下是普通话的句子。")
 
         button_row = ttk.Frame(top)
-        button_row.grid(row=3, column=0, columnspan=5, sticky="ew", pady=(12, 0))
+        button_row.grid(row=4, column=0, columnspan=5, sticky="ew", pady=(12, 0))
         for column in range(5):
             button_row.columnconfigure(column, weight=1)
 
@@ -130,24 +141,32 @@ class WindowApp:
 
         workspace_text = self.workspace_var.get().strip()
         workspace = Path(workspace_text).expanduser() if workspace_text else None
+        provider = self.provider_var.get().strip() or "whisper"
         model = self.model_var.get().strip() or "small"
         prompt = self.prompt_text.get("1.0", "end").strip() or None
 
         self.is_running = True
         self.transcribe_button.state(["disabled"])
         self.status_var.set("Running")
-        self._append_log(f"Starting transcription with model={model}")
+        self._append_log(f"Starting transcription with provider={provider} model={model}")
 
         thread = threading.Thread(
             target=self._run_pipeline,
-            args=(source, model, workspace, prompt),
+            args=(source, provider, model, workspace, prompt),
             daemon=True,
         )
         thread.start()
 
-    def _run_pipeline(self, source: str, model: str, workspace: Path | None, prompt: str | None) -> None:
+    def _run_pipeline(
+        self,
+        source: str,
+        provider: str,
+        model: str,
+        workspace: Path | None,
+        prompt: str | None,
+    ) -> None:
         try:
-            pipeline = self.pipeline_factory(model, workspace)
+            pipeline = self.pipeline_factory(provider, model, workspace)
             self.event_queue.put(("log", f"Pipeline ready. Workspace={pipeline.settings.workspace_root}"))
             result = pipeline.transcribe(source, prompt=prompt)
             self.event_queue.put(("done", result))
@@ -232,12 +251,14 @@ class WindowApp:
 
 def run_window(
     *,
-    pipeline_factory: Callable[[str, Path | None], B2TPipeline],
+    pipeline_factory: Callable[[str, str, Path | None], B2TPipeline],
+    default_provider: str = "whisper",
     default_model: str = "small",
     default_workspace: Path | None = None,
 ) -> None:
     app = WindowApp(
         pipeline_factory=pipeline_factory,
+        default_provider=default_provider,
         default_model=default_model,
         default_workspace=default_workspace,
     )

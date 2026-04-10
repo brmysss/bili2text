@@ -12,8 +12,9 @@ from b2t.pipeline import B2TPipeline
 
 
 def create_app(
-    pipeline_factory: Callable[[str], B2TPipeline],
+    pipeline_factory: Callable[[str, str], B2TPipeline],
     *,
+    default_provider: str = "whisper",
     default_model: str = "small",
 ) -> FastAPI:
     templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates")))
@@ -28,6 +29,7 @@ def create_app(
                 "error": None,
                 "values": {
                     "source": "",
+                    "provider": default_provider,
                     "model": default_model,
                     "prompt": "",
                 },
@@ -38,11 +40,12 @@ def create_app(
     async def transcribe_from_form(
         request: Request,
         source: str = Form(...),
+        provider: str = Form("whisper"),
         model: str = Form("small"),
         prompt: str = Form(""),
     ) -> HTMLResponse:
         try:
-            result = pipeline_factory(model).transcribe(source, prompt=prompt or None)
+            result = pipeline_factory(provider, model).transcribe(source, prompt=prompt or None)
         except Exception as exc:
             return templates.TemplateResponse(
                 request,
@@ -51,6 +54,7 @@ def create_app(
                     "error": str(exc),
                     "values": {
                         "source": source,
+                        "provider": provider,
                         "model": model,
                         "prompt": prompt,
                     },
@@ -63,10 +67,11 @@ def create_app(
     @app.post("/api/transcribe")
     async def transcribe_from_api(
         source: str = Form(...),
+        provider: str = Form("whisper"),
         model: str = Form("small"),
         prompt: str = Form(""),
     ) -> JSONResponse:
-        result = pipeline_factory(model).transcribe(source, prompt=prompt or None)
+        result = pipeline_factory(provider, model).transcribe(source, prompt=prompt or None)
         return JSONResponse(_result_payload(result))
 
     @app.get("/health")
