@@ -39,6 +39,13 @@ Add more providers when needed:
 uv sync --extra sensevoice --extra volcengine
 ```
 
+It is usually safer to let Bootstrap manage combined environments:
+
+```bash
+uv run bili2text bootstrap
+uv run bili2text bootstrap --sync-only
+```
+
 ## Common Commands
 
 ```bash
@@ -62,6 +69,8 @@ The default local config file lives at:
 Important fields:
 
 - `language`
+- `enabled_providers`
+- `enabled_features`
 - `default_provider`
 - `default_model`
 - `sensevoice.*`

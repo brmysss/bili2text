@@ -41,6 +41,13 @@ uv sync --extra whisper --extra web
 uv sync --extra sensevoice --extra volcengine
 ```
 
+更推荐直接用 Bootstrap 管理组合环境：
+
+```bash
+uv run bili2text bootstrap
+uv run bili2text bootstrap --sync-only
+```
+
 ### 常用命令
 
 ```bash
@@ -64,6 +71,8 @@ pytest -q
 当前配置主要包含：
 
 - `language`
+- `enabled_providers`
+- `enabled_features`
 - `default_provider`
 - `default_model`
 - `sensevoice.*`

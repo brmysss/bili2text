@@ -1,6 +1,10 @@
 # 更新日志
 
-## 2026-04-10 (v2)
+## 2026-04-10 (v0.3.0)
+
+### 版本整理
+
+- 将当前重构基线统一规范为 `0.3.0`
 
 ### CLI 体验优化
 
@@ -12,10 +16,14 @@
 
 - 语言和引擎选择改为箭头键 + 回车交互，取代手动输入
 - 支持 checkbox 多选 provider：可同时启用多个转写引擎，按顺序逐个配置
+- 支持 checkbox 多选 feature：可按需启用 `web / server / window`
 - 只有选中的 provider 才会进入配置流程，不再无差别询问所有参数
 - 配置文件新增 `enabled_providers` 字段，向后兼容旧配置
+- 配置文件新增 `enabled_features` 字段
 - Whisper 模型选择改为带说明的列表（tiny/base/small/medium/large）
 - SenseVoice 语言选择改为带说明的下拉列表
+- Bootstrap 可直接生成并执行 `uv sync --extra ...`
+- 新增 `bootstrap --sync-only` 用于环境重同步
 
 ### i18n 文案优化
 

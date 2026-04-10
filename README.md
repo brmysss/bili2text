@@ -107,13 +107,27 @@ uv run bili2text bootstrap
 uv run bili2text init
 ```
 
-Bootstrap 目前会完成这些事情：
+Bootstrap 现在不只负责写配置，还会根据你勾选的 Provider / Feature 生成并执行一次正确的 `uv sync --extra ...`。
+
+它目前会完成这些事情：
 
 - 选择界面语言
-- 介绍 `whisper`、`sensevoice`、`volcengine` 三种配置类型
+- 勾选 `whisper`、`sensevoice`、`volcengine` 等 Provider
+- 勾选 `web`、`server`、`window` 等功能入口
 - 写入默认 Provider 与默认模型
 - 配置 SenseVoice 本地模型目录
 - 配置火山引擎所需的凭据与参数
+- 生成并确认最终的环境同步命令
+
+注意：
+
+- 不要手动连续执行多次 `uv sync --extra ...` 来“叠加环境”
+- 正确方式是一次性把所需 extra 全写上，或者直接让 Bootstrap 处理
+- 如果环境状态坏掉了，可以执行：
+
+```bash
+uv run bili2text bootstrap --sync-only
+```
 
 本地配置默认写入：
 
@@ -196,6 +210,7 @@ uv run bili2text win
 
 - 新架构在 `src/b2t` 中如何分层
 - 如何使用 `uv` 准备环境
+- Bootstrap 如何管理 `uv` 环境同步
 - Provider、Feature、入口脚本分别放在哪里
 - 如何继续拆分功能并保持小步提交
 

@@ -105,13 +105,27 @@ uv run bili2text bootstrap
 uv run bili2text init
 ```
 
+Bootstrap now does more than write config. It also generates and runs one correct `uv sync --extra ...` command based on the Providers and Features you selected.
+
 The bootstrap flow currently covers:
 
 - interface language
-- the three provider types
+- provider selection
+- feature selection
 - default provider and default model
 - SenseVoice local model directory
 - Volcengine credentials and related options
+- a confirmed environment sync command
+
+Important:
+
+- do not chain multiple `uv sync --extra ...` commands and expect them to merge automatically
+- either run one combined sync command or let Bootstrap handle it
+- if the environment gets out of sync, run:
+
+```bash
+uv run bili2text bootstrap --sync-only
+```
 
 The local config is written to:
 

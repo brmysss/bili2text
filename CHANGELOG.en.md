@@ -1,6 +1,10 @@
 # Changelog
 
-## 2026-04-10 (v2)
+## 2026-04-10 (v0.3.0)
+
+### Version Cleanup
+
+- normalized the current refactor baseline to `0.3.0`
 
 ### CLI UX
 
@@ -12,10 +16,14 @@
 
 - language and engine selection now use arrow-key navigation instead of typed input
 - multi-provider support via checkbox: enable multiple engines, configure each in sequence
+- multi-feature support via checkbox: enable `web / server / window` as needed
 - only selected providers enter the configuration flow — no more asking for unrelated API keys
 - config file gains `enabled_providers` field, backwards-compatible with old configs
+- config file gains `enabled_features` field
 - whisper model selection shows descriptions (tiny/base/small/medium/large)
 - sensevoice language selection uses a descriptive list
+- Bootstrap can now generate and run `uv sync --extra ...`
+- added `bootstrap --sync-only` for environment resync
 
 ### I18n copy refresh
 
