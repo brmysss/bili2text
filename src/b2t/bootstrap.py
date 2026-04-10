@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
 from InquirerPy import inquirer
 from rich.console import Console
 from rich.panel import Panel
@@ -7,6 +12,56 @@ from rich.panel import Panel
 from b2t.config import Settings
 from b2t.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, tr
 from b2t.user_config import ALL_PROVIDERS, AppConfig
+
+
+def uv_available(which=shutil.which) -> bool:
+    return which("uv") is not None
+
+
+def collect_required_extras(*, providers: list[str], features: list[str]) -> list[str]:
+    extras: list[str] = []
+    for name in [*providers, *features]:
+        mapped = name if name != "window" else ""
+        if mapped and mapped not in extras:
+            extras.append(mapped)
+    return extras
+
+
+def build_uv_sync_command(*, workspace, extras: list[str]) -> list[str]:
+    command = ["uv", "sync"]
+    for extra in extras:
+        command.extend(["--extra", extra])
+    return command
+
+
+@dataclass(slots=True)
+class BootstrapEnvironmentResult:
+    ok: bool
+    reason: str
+    command: list[str]
+    stdout: str = ""
+    stderr: str = ""
+
+
+def sync_selected_environment(
+    *,
+    workspace: Path,
+    extras: list[str],
+    which=shutil.which,
+    runner=subprocess.run,
+) -> BootstrapEnvironmentResult:
+    command = build_uv_sync_command(workspace=workspace, extras=extras)
+    if not uv_available(which):
+        return BootstrapEnvironmentResult(ok=False, reason="missing_uv", command=command)
+    assert runner is not None
+    completed = runner(command, cwd=workspace, capture_output=True, text=True, check=False)
+    return BootstrapEnvironmentResult(
+        ok=completed.returncode == 0,
+        reason="ok" if completed.returncode == 0 else "sync_failed",
+        command=command,
+        stdout=completed.stdout,
+        stderr=completed.stderr,
+    )
 
 
 def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
