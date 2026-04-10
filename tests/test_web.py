@@ -7,8 +7,9 @@ from b2t.web import create_app
 
 
 class FakePipeline:
-    def __init__(self, tmp_path: Path) -> None:
+    def __init__(self, tmp_path: Path, model: str) -> None:
         self.tmp_path = tmp_path
+        self.model = model
 
     def transcribe(self, source: str, *, prompt: str | None = None, output: Path | None = None) -> TranscriptResult:
         transcript_path = self.tmp_path / "demo.txt"
@@ -18,7 +19,7 @@ class FakePipeline:
         return TranscriptResult(
             source=SourceRef(raw_input=source, kind="bilibili", display_name="demo", url=source, bv="BV1xx411c7XD"),
             engine="whisper",
-            model="small",
+            model=self.model,
             text="demo text",
             audio_path=self.tmp_path / "demo.wav",
             transcript_path=transcript_path,
@@ -28,22 +29,24 @@ class FakePipeline:
 
 
 def test_index_page_renders_form(tmp_path: Path) -> None:
-    app = create_app(lambda: FakePipeline(tmp_path))
+    app = create_app(lambda model: FakePipeline(tmp_path, model), default_model="base")
     client = TestClient(app)
 
     response = client.get("/")
     assert response.status_code == 200
     assert "BV / URL / 本地路径" in response.text
+    assert 'value="base"' in response.text
 
 
 def test_transcribe_form_renders_result(tmp_path: Path) -> None:
-    app = create_app(lambda: FakePipeline(tmp_path))
+    app = create_app(lambda model: FakePipeline(tmp_path, model))
     client = TestClient(app)
 
     response = client.post(
         "/transcribe",
-        data={"source": "https://www.bilibili.com/video/BV1xx411c7XD", "model": "small", "prompt": ""},
+        data={"source": "https://www.bilibili.com/video/BV1xx411c7XD", "model": "tiny", "prompt": ""},
     )
     assert response.status_code == 200
     assert "转写完成" in response.text
     assert "demo text" in response.text
+    assert "tiny" in response.text

@@ -121,5 +121,8 @@ def _run_server(*, host: str, port: int, model: str, workspace: Path | None) -> 
 
     from b2t.web import create_app
 
-    app_instance = create_app(lambda: build_pipeline(workspace=workspace, model=model))
+    app_instance = create_app(
+        lambda selected_model: build_pipeline(workspace=workspace, model=selected_model or model),
+        default_model=model,
+    )
     uvicorn.run(app_instance, host=host, port=port)

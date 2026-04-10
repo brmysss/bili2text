@@ -11,7 +11,11 @@ from b2t.models import TranscriptResult
 from b2t.pipeline import B2TPipeline
 
 
-def create_app(pipeline_factory: Callable[[], B2TPipeline]) -> FastAPI:
+def create_app(
+    pipeline_factory: Callable[[str], B2TPipeline],
+    *,
+    default_model: str = "small",
+) -> FastAPI:
     templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates")))
     app = FastAPI(title="bili2text")
 
@@ -24,7 +28,7 @@ def create_app(pipeline_factory: Callable[[], B2TPipeline]) -> FastAPI:
                 "error": None,
                 "values": {
                     "source": "",
-                    "model": "small",
+                    "model": default_model,
                     "prompt": "",
                 },
             },
@@ -38,7 +42,7 @@ def create_app(pipeline_factory: Callable[[], B2TPipeline]) -> FastAPI:
         prompt: str = Form(""),
     ) -> HTMLResponse:
         try:
-            result = pipeline_factory().transcribe(source, prompt=prompt or None)
+            result = pipeline_factory(model).transcribe(source, prompt=prompt or None)
         except Exception as exc:
             return templates.TemplateResponse(
                 request,
@@ -62,7 +66,7 @@ def create_app(pipeline_factory: Callable[[], B2TPipeline]) -> FastAPI:
         model: str = Form("small"),
         prompt: str = Form(""),
     ) -> JSONResponse:
-        result = pipeline_factory().transcribe(source, prompt=prompt or None)
+        result = pipeline_factory(model).transcribe(source, prompt=prompt or None)
         return JSONResponse(_result_payload(result))
 
     @app.get("/health")
