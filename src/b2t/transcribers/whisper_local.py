@@ -16,7 +16,14 @@ class LocalWhisperTranscriber(Transcriber):
 
     def transcribe(self, audio_path: Path, *, prompt: str | None = None) -> dict[str, Any]:
         model = self._ensure_model()
-        result = model.transcribe(str(audio_path), initial_prompt=prompt or None, verbose=False)
+        transcribe_options: dict[str, Any] = {
+            "initial_prompt": prompt or None,
+            # `verbose=None` keeps the current Whisper release quiet on both text and frame progress.
+            "verbose": None,
+        }
+        if self.device == "cpu":
+            transcribe_options["fp16"] = False
+        result = model.transcribe(str(audio_path), **transcribe_options)
         text = (result.get("text") or "").strip()
         return {
             "text": text,

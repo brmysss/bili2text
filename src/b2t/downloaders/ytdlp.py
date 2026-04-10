@@ -29,6 +29,7 @@ class YtDlpDownloader(Downloader):
             "merge_output_format": "mp4",
             "noplaylist": True,
             "outtmpl": str(settings.downloads_dir / "%(id)s.%(ext)s"),
+            "noprogress": True,
             "quiet": True,
             "no_warnings": True,
         }

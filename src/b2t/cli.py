@@ -66,10 +66,14 @@ def transcribe(
 def doctor() -> None:
     """Print the current runtime requirements and what is missing."""
     ffmpeg = shutil.which("ffmpeg")
-    rows = [
-        ("python package: yt-dlp", "ok"),
-        ("ffmpeg on PATH", ffmpeg or "missing"),
-    ]
+    rows: list[tuple[str, str]] = [("ffmpeg on PATH", ffmpeg or "missing")]
+
+    try:
+        import yt_dlp  # noqa: F401
+    except ImportError:
+        rows.insert(0, ("python package: yt-dlp", "missing"))
+    else:
+        rows.insert(0, ("python package: yt-dlp", "ok"))
 
     try:
         import whisper  # noqa: F401
