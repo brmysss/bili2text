@@ -9,12 +9,14 @@ def test_app_config_round_trip(tmp_path: Path) -> None:
     config = AppConfig(
         default_provider="sensevoice",
         default_model="C:/models/sensevoice-small",
+        language="en-US",
     )
     config.sensevoice.model_dir = "C:/models/sensevoice-small"
     config.volcengine.api_key = "secret"
     config.save(settings)
 
     loaded = AppConfig.load(settings)
+    assert loaded.language == "en-US"
     assert loaded.default_provider == "sensevoice"
     assert loaded.default_model == "C:/models/sensevoice-small"
     assert loaded.sensevoice.model_dir == "C:/models/sensevoice-small"

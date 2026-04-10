@@ -1,28 +1,28 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
-  <title>bili2text result</title>
+  <title>{{ t("web_result_title") }}</title>
 </head>
 <body>
   <main>
-    <h1>转写完成</h1>
-    <p><a href="/">返回首页</a></p>
+    <h1>{{ t("web_result_title") }}</h1>
+    <p><a href="/">{{ t("web_back_home") }}</a></p>
 
     <section>
-      <h2>结果文件</h2>
-      <p>Provider: {{ result.engine }}</p>
-      <p>Model: {{ result.model }}</p>
-      <p>Transcript: {{ result.transcript_path }}</p>
-      <p>Metadata: {{ result.metadata_path }}</p>
-      <p>Audio: {{ result.audio_path }}</p>
+      <h2>{{ t("web_result_files") }}</h2>
+      <p>{{ t("web_result_provider") }}: {{ result.engine }}</p>
+      <p>{{ t("web_result_model") }}: {{ result.model }}</p>
+      <p>{{ t("web_result_transcript") }}: {{ result.transcript_path }}</p>
+      <p>{{ t("web_result_metadata") }}: {{ result.metadata_path }}</p>
+      <p>{{ t("web_result_audio") }}: {{ result.audio_path }}</p>
       {% if result.video_path %}
-      <p>Video: {{ result.video_path }}</p>
+      <p>{{ t("web_result_video") }}: {{ result.video_path }}</p>
       {% endif %}
     </section>
 
     <section>
-      <h2>文本</h2>
+      <h2>{{ t("web_result_text") }}</h2>
       <pre>{{ result.text }}</pre>
     </section>
   </main>

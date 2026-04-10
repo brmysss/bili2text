@@ -7,6 +7,7 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
+from b2t.i18n import tr
 from b2t.models import TranscriptResult
 from b2t.pipeline import B2TPipeline
 
@@ -16,6 +17,7 @@ def create_app(
     *,
     default_provider: str = "whisper",
     default_model: str = "small",
+    language: str = "zh-CN",
 ) -> FastAPI:
     templates = Jinja2Templates(directory=str(Path(__file__).with_name("templates")))
     app = FastAPI(title="bili2text")
@@ -33,6 +35,8 @@ def create_app(
                     "model": default_model,
                     "prompt": "",
                 },
+                "lang": language,
+                "t": lambda key, **kwargs: tr(language, key, **kwargs),
             },
         )
 
@@ -58,11 +62,21 @@ def create_app(
                         "model": model,
                         "prompt": prompt,
                     },
+                    "lang": language,
+                    "t": lambda key, **kwargs: tr(language, key, **kwargs),
                 },
                 status_code=400,
             )
 
-        return templates.TemplateResponse(request, "result.html", {"result": result})
+        return templates.TemplateResponse(
+            request,
+            "result.html",
+            {
+                "result": result,
+                "lang": language,
+                "t": lambda key, **kwargs: tr(language, key, **kwargs),
+            },
+        )
 
     @app.post("/api/transcribe")
     async def transcribe_from_api(

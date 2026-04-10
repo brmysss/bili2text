@@ -30,7 +30,11 @@ class FakePipeline:
 
 
 def test_index_page_renders_form(tmp_path: Path) -> None:
-    app = create_app(lambda provider, model: FakePipeline(tmp_path, provider, model), default_provider="sensevoice", default_model="base")
+    app = create_app(
+        lambda provider, model: FakePipeline(tmp_path, provider, model),
+        default_provider="sensevoice",
+        default_model="base",
+    )
     client = TestClient(app)
 
     response = client.get("/")
@@ -53,3 +57,18 @@ def test_transcribe_form_renders_result(tmp_path: Path) -> None:
     assert "demo text" in response.text
     assert "sensevoice" in response.text
     assert "tiny" in response.text
+
+
+def test_index_page_supports_english_language(tmp_path: Path) -> None:
+    app = create_app(
+        lambda provider, model: FakePipeline(tmp_path, provider, model),
+        default_provider="whisper",
+        default_model="small",
+        language="en-US",
+    )
+    client = TestClient(app)
+
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "BV / URL / local path" in response.text
+    assert "Transcribe" in response.text

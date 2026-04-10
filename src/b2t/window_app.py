@@ -9,6 +9,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Callable
 
+from b2t.i18n import tr
 from b2t.models import TranscriptResult
 from b2t.pipeline import B2TPipeline
 
@@ -21,14 +22,16 @@ class WindowApp:
         default_provider: str = "whisper",
         default_model: str = "small",
         default_workspace: Path | None = None,
+        language: str = "zh-CN",
     ) -> None:
         self.pipeline_factory = pipeline_factory
+        self.language = language
         self.event_queue: queue.Queue[tuple[str, object]] = queue.Queue()
         self.latest_result: TranscriptResult | None = None
         self.is_running = False
 
         self.root = tk.Tk()
-        self.root.title("bili2text Window")
+        self.root.title(tr(self.language, "window_title"))
         self.root.geometry("980x700")
         self.root.minsize(840, 620)
 
@@ -36,7 +39,7 @@ class WindowApp:
         self.provider_var = tk.StringVar(value=default_provider)
         self.model_var = tk.StringVar(value=default_model)
         self.workspace_var = tk.StringVar(value=str(default_workspace or Path(".b2t").resolve()))
-        self.status_var = tk.StringVar(value="Ready")
+        self.status_var = tk.StringVar(value=tr(self.language, "window_status_ready"))
 
         self._build_layout()
         self.root.after(100, self._drain_events)
@@ -53,14 +56,14 @@ class WindowApp:
         top.columnconfigure(1, weight=1)
         top.columnconfigure(3, weight=1)
 
-        ttk.Label(top, text="Source").grid(row=0, column=0, sticky="w")
+        ttk.Label(top, text=tr(self.language, "window_source")).grid(row=0, column=0, sticky="w")
         source_entry = ttk.Entry(top, textvariable=self.source_var)
         source_entry.grid(row=0, column=1, columnspan=3, sticky="ew", padx=(8, 8))
         source_entry.bind("<Return>", lambda _event: self.start_transcribe())
 
-        ttk.Button(top, text="Choose File", command=self._choose_file).grid(row=0, column=4, sticky="ew")
+        ttk.Button(top, text=tr(self.language, "window_choose_file"), command=self._choose_file).grid(row=0, column=4, sticky="ew")
 
-        ttk.Label(top, text="Provider").grid(row=1, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(top, text=tr(self.language, "window_provider")).grid(row=1, column=0, sticky="w", pady=(10, 0))
         provider_box = ttk.Combobox(
             top,
             textvariable=self.provider_var,
@@ -69,7 +72,7 @@ class WindowApp:
         )
         provider_box.grid(row=1, column=1, sticky="ew", padx=(8, 16), pady=(10, 0))
 
-        ttk.Label(top, text="Model").grid(row=1, column=2, sticky="w", pady=(10, 0))
+        ttk.Label(top, text=tr(self.language, "window_model")).grid(row=1, column=2, sticky="w", pady=(10, 0))
         model_box = ttk.Combobox(
             top,
             textvariable=self.model_var,
@@ -78,12 +81,12 @@ class WindowApp:
         )
         model_box.grid(row=1, column=3, sticky="ew", padx=(8, 8), pady=(10, 0))
 
-        ttk.Label(top, text="Workspace").grid(row=2, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(top, text=tr(self.language, "window_workspace")).grid(row=2, column=0, sticky="w", pady=(10, 0))
         workspace_entry = ttk.Entry(top, textvariable=self.workspace_var)
         workspace_entry.grid(row=2, column=1, columnspan=3, sticky="ew", padx=(8, 8), pady=(10, 0))
-        ttk.Button(top, text="Browse", command=self._choose_workspace).grid(row=2, column=4, sticky="ew", pady=(10, 0))
+        ttk.Button(top, text=tr(self.language, "window_browse"), command=self._choose_workspace).grid(row=2, column=4, sticky="ew", pady=(10, 0))
 
-        ttk.Label(top, text="Prompt").grid(row=3, column=0, sticky="nw", pady=(10, 0))
+        ttk.Label(top, text=tr(self.language, "window_prompt")).grid(row=3, column=0, sticky="nw", pady=(10, 0))
         self.prompt_text = tk.Text(top, height=5, wrap="word")
         self.prompt_text.grid(row=3, column=1, columnspan=4, sticky="nsew", padx=(8, 0), pady=(10, 0))
         self.prompt_text.insert("1.0", "以下是普通话的句子。")
@@ -93,18 +96,18 @@ class WindowApp:
         for column in range(5):
             button_row.columnconfigure(column, weight=1)
 
-        self.transcribe_button = ttk.Button(button_row, text="Start", command=self.start_transcribe)
+        self.transcribe_button = ttk.Button(button_row, text=tr(self.language, "window_start"), command=self.start_transcribe)
         self.transcribe_button.grid(row=0, column=0, sticky="ew")
-        ttk.Button(button_row, text="Clear Log", command=self._clear_log).grid(row=0, column=1, sticky="ew", padx=(8, 0))
-        ttk.Button(button_row, text="Open Transcript", command=self._open_transcript).grid(row=0, column=2, sticky="ew", padx=(8, 0))
-        ttk.Button(button_row, text="Open Workspace", command=self._open_workspace).grid(row=0, column=3, sticky="ew", padx=(8, 0))
-        ttk.Button(button_row, text="Open Repo", command=self._open_repo).grid(row=0, column=4, sticky="ew", padx=(8, 0))
+        ttk.Button(button_row, text=tr(self.language, "window_clear_log"), command=self._clear_log).grid(row=0, column=1, sticky="ew", padx=(8, 0))
+        ttk.Button(button_row, text=tr(self.language, "window_open_transcript"), command=self._open_transcript).grid(row=0, column=2, sticky="ew", padx=(8, 0))
+        ttk.Button(button_row, text=tr(self.language, "window_open_workspace"), command=self._open_workspace).grid(row=0, column=3, sticky="ew", padx=(8, 0))
+        ttk.Button(button_row, text=tr(self.language, "window_open_repo"), command=self._open_repo).grid(row=0, column=4, sticky="ew", padx=(8, 0))
 
         body = ttk.Panedwindow(self.root, orient=tk.VERTICAL)
         body.grid(row=1, column=0, sticky="nsew", padx=16, pady=(0, 16))
 
-        log_frame = ttk.Labelframe(body, text="Log", padding=8)
-        result_frame = ttk.Labelframe(body, text="Transcript Preview", padding=8)
+        log_frame = ttk.Labelframe(body, text=tr(self.language, "window_log"), padding=8)
+        result_frame = ttk.Labelframe(body, text=tr(self.language, "window_result_preview"), padding=8)
         body.add(log_frame, weight=1)
         body.add(result_frame, weight=1)
 
@@ -136,7 +139,7 @@ class WindowApp:
 
         source = self.source_var.get().strip()
         if not source:
-            messagebox.showwarning("bili2text", "请输入 BV、视频链接或本地文件路径。")
+            messagebox.showwarning("bili2text", tr(self.language, "window_missing_source"))
             return
 
         workspace_text = self.workspace_var.get().strip()
@@ -147,8 +150,8 @@ class WindowApp:
 
         self.is_running = True
         self.transcribe_button.state(["disabled"])
-        self.status_var.set("Running")
-        self._append_log(f"Starting transcription with provider={provider} model={model}")
+        self.status_var.set(tr(self.language, "window_status_running"))
+        self._append_log(tr(self.language, "window_starting", provider=provider, model=model))
 
         thread = threading.Thread(
             target=self._run_pipeline,
@@ -167,7 +170,7 @@ class WindowApp:
     ) -> None:
         try:
             pipeline = self.pipeline_factory(provider, model, workspace)
-            self.event_queue.put(("log", f"Pipeline ready. Workspace={pipeline.settings.workspace_root}"))
+            self.event_queue.put(("log", tr(self.language, "window_pipeline_ready", workspace=pipeline.settings.workspace_root)))
             result = pipeline.transcribe(source, prompt=prompt)
             self.event_queue.put(("done", result))
         except Exception as exc:
@@ -186,15 +189,15 @@ class WindowApp:
                 result = payload
                 assert isinstance(result, TranscriptResult)
                 self.latest_result = result
-                self._append_log(f"Transcript saved to: {result.transcript_path}")
-                self._append_log(f"Metadata saved to: {result.metadata_path}")
+                self._append_log(tr(self.language, "transcript_saved", path=result.transcript_path))
+                self._append_log(tr(self.language, "metadata_saved", path=result.metadata_path))
                 self._set_result_text(result.text)
-                self.status_var.set("Completed")
+                self.status_var.set(tr(self.language, "window_status_completed"))
                 self.is_running = False
                 self.transcribe_button.state(["!disabled"])
             elif kind == "error":
-                self._append_log(f"Error: {payload}")
-                self.status_var.set("Failed")
+                self._append_log(tr(self.language, "window_error", message=payload))
+                self.status_var.set(tr(self.language, "window_status_failed"))
                 self.is_running = False
                 self.transcribe_button.state(["!disabled"])
                 messagebox.showerror("bili2text", str(payload))
@@ -220,7 +223,7 @@ class WindowApp:
 
     def _choose_file(self) -> None:
         path = filedialog.askopenfilename(
-            title="Choose source",
+            title=tr(self.language, "window_choose_file"),
             filetypes=[
                 ("Media", "*.mp4 *.mkv *.mov *.flv *.avi *.webm *.mp3 *.wav *.m4a *.flac *.ogg *.aac"),
                 ("All files", "*.*"),
@@ -230,13 +233,13 @@ class WindowApp:
             self.source_var.set(path)
 
     def _choose_workspace(self) -> None:
-        directory = filedialog.askdirectory(title="Choose workspace")
+        directory = filedialog.askdirectory(title=tr(self.language, "window_choose_workspace"))
         if directory:
             self.workspace_var.set(directory)
 
     def _open_transcript(self) -> None:
         if not self.latest_result:
-            messagebox.showinfo("bili2text", "还没有可打开的转写结果。")
+            messagebox.showinfo("bili2text", tr(self.language, "window_no_result"))
             return
         _open_path(self.latest_result.transcript_path)
 
@@ -255,12 +258,14 @@ def run_window(
     default_provider: str = "whisper",
     default_model: str = "small",
     default_workspace: Path | None = None,
+    language: str = "zh-CN",
 ) -> None:
     app = WindowApp(
         pipeline_factory=pipeline_factory,
         default_provider=default_provider,
         default_model=default_model,
         default_workspace=default_workspace,
+        language=language,
     )
     app.run()
 

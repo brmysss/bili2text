@@ -56,6 +56,7 @@ name = "bili2text"
 version = "0.3.0a1"
 source = { editable = "." }
 dependencies = [
+    { name = "rich" },
     { name = "typer" },
     { name = "yt-dlp" },
 ]
@@ -103,6 +104,7 @@ requires-dist = [
     { name = "python-multipart", marker = "extra == 'server'", specifier = ">=0.0.20" },
     { name = "python-multipart", marker = "extra == 'web'", specifier = ">=0.0.20" },
     { name = "requests", marker = "extra == 'volcengine'", specifier = ">=2.32.3" },
+    { name = "rich", specifier = ">=13.9.4" },
     { name = "torch", marker = "extra == 'sensevoice'", specifier = ">=2.5.0" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.34.0" },

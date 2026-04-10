@@ -4,6 +4,7 @@ import json
 from dataclasses import asdict, dataclass, field
 
 from b2t.config import Settings
+from b2t.i18n import DEFAULT_LANGUAGE, normalize_language
 
 
 @dataclass(slots=True)
@@ -25,6 +26,7 @@ class VolcengineConfig:
 
 @dataclass(slots=True)
 class AppConfig:
+    language: str = DEFAULT_LANGUAGE
     default_provider: str = "whisper"
     default_model: str = "small"
     sensevoice: SenseVoiceConfig = field(default_factory=SenseVoiceConfig)
@@ -37,6 +39,7 @@ class AppConfig:
 
         data = json.loads(settings.config_path.read_text(encoding="utf-8"))
         return cls(
+            language=normalize_language(data.get("language")),
             default_provider=data.get("default_provider", "whisper"),
             default_model=data.get("default_model", "small"),
             sensevoice=SenseVoiceConfig(**data.get("sensevoice", {})),

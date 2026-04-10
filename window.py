@@ -32,6 +32,7 @@ else:
             default_provider=config.default_provider,
             default_model=config.default_model,
             default_workspace=settings.workspace_root,
+            language=config.language,
         )
 
 

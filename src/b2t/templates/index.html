@@ -1,30 +1,30 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{ lang }}">
 <head>
   <meta charset="utf-8">
-  <title>bili2text</title>
+  <title>{{ t("web_title") }}</title>
 </head>
 <body>
   <main>
-    <h1>bili2text</h1>
-    <p>CLI-first Bilibili to text toolkit.</p>
+    <h1>{{ t("web_title") }}</h1>
+    <p>{{ t("web_subtitle") }}</p>
 
     {% if error %}
     <section>
-      <h2>错误</h2>
+      <h2>{{ t("web_error") }}</h2>
       <p>{{ error }}</p>
     </section>
     {% endif %}
 
     <section>
-      <h2>转写</h2>
+      <h2>{{ t("web_form_title") }}</h2>
       <form method="post" action="/transcribe">
         <p>
-          <label for="source">BV / URL / 本地路径</label><br>
+          <label for="source">{{ t("web_source") }}</label><br>
           <input id="source" name="source" type="text" value="{{ values.source }}" required>
         </p>
         <p>
-          <label for="provider">Provider</label><br>
+          <label for="provider">{{ t("web_provider") }}</label><br>
           <select id="provider" name="provider">
             <option value="whisper" {% if values.provider == "whisper" %}selected{% endif %}>whisper</option>
             <option value="sensevoice" {% if values.provider == "sensevoice" %}selected{% endif %}>sensevoice</option>
@@ -32,15 +32,15 @@
           </select>
         </p>
         <p>
-          <label for="model">Model / Provider Identifier</label><br>
+          <label for="model">{{ t("web_model") }}</label><br>
           <input id="model" name="model" type="text" value="{{ values.model }}">
         </p>
         <p>
-          <label for="prompt">Prompt</label><br>
+          <label for="prompt">{{ t("web_prompt") }}</label><br>
           <textarea id="prompt" name="prompt" rows="6" cols="80">{{ values.prompt }}</textarea>
         </p>
         <p>
-          <button type="submit">开始转写</button>
+          <button type="submit">{{ t("web_submit") }}</button>
         </p>
       </form>
     </section>
