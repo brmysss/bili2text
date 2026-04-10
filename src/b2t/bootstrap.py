@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+from InquirerPy import inquirer
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
-from rich.table import Table
 
 from b2t.config import Settings
 from b2t.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, tr
-from b2t.user_config import AppConfig
+from b2t.user_config import ALL_PROVIDERS, AppConfig
 
 
 def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
@@ -17,90 +16,91 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
         return config
 
     console = Console()
-    initial_language = config.language or DEFAULT_LANGUAGE
+    lang = config.language or DEFAULT_LANGUAGE
+
+    console.print()
     console.print(
         Panel.fit(
-            tr(initial_language, "bootstrap_intro"),
-            title=tr(initial_language, "bootstrap_title"),
+            tr(lang, "bootstrap_intro"),
+            title=tr(lang, "bootstrap_title"),
             border_style="cyan",
         )
     )
-
-    config.language = _prompt_language(console, default=config.language or DEFAULT_LANGUAGE)
-    console.print()
-    console.print(f"[bold]{tr(config.language, 'bootstrap_section_providers')}[/bold]")
-    console.print(tr(config.language, "bootstrap_provider_tip"))
-    console.print(_provider_overview_table(config.language))
     console.print()
 
-    config.default_provider = Prompt.ask(
-        tr(config.language, "bootstrap_provider_prompt"),
-        choices=["whisper", "sensevoice", "volcengine"],
-        default=config.default_provider,
-        console=console,
-    ).strip()
-    config.default_model = Prompt.ask(
-        tr(config.language, "bootstrap_model_prompt"),
-        default=config.default_model,
-        console=console,
-    ).strip()
+    # ── 1. Language ──────────────────────────────────────────
+    language_choices = [
+        {"name": f"{label}  ({code})", "value": code}
+        for code, label in SUPPORTED_LANGUAGES.items()
+    ]
+    config.language = inquirer.select(
+        message=tr(lang, "bootstrap_language_prompt"),
+        choices=language_choices,
+        default=config.language,
+    ).execute()
+    lang = config.language
 
+    # ── 2. Providers (checkbox) ──────────────────────────────
     console.print()
-    console.rule(tr(config.language, "bootstrap_section_defaults"))
-    config.sensevoice.model_dir = Prompt.ask(
-        tr(config.language, "bootstrap_sensevoice_dir_prompt"),
-        default=config.sensevoice.model_dir,
-        console=console,
-    ).strip()
-    config.sensevoice.language = Prompt.ask(
-        tr(config.language, "bootstrap_sensevoice_lang_prompt"),
-        default=config.sensevoice.language,
-        console=console,
-    ).strip()
-    config.sensevoice.use_itn = Confirm.ask(
-        tr(config.language, "bootstrap_sensevoice_itn_prompt"),
-        default=config.sensevoice.use_itn,
-        console=console,
-    )
+    provider_choices = [
+        {
+            "name": f"whisper    — {tr(lang, 'provider_whisper_short')}",
+            "value": "whisper",
+            "enabled": "whisper" in config.enabled_providers,
+        },
+        {
+            "name": f"sensevoice — {tr(lang, 'provider_sensevoice_short')}",
+            "value": "sensevoice",
+            "enabled": "sensevoice" in config.enabled_providers,
+        },
+        {
+            "name": f"volcengine — {tr(lang, 'provider_volcengine_short')}",
+            "value": "volcengine",
+            "enabled": "volcengine" in config.enabled_providers,
+        },
+    ]
+    selected_providers: list[str] = inquirer.checkbox(
+        message=tr(lang, "bootstrap_providers_prompt"),
+        choices=provider_choices,
+        validate=lambda result: len(result) >= 1,
+        invalid_message=tr(lang, "bootstrap_providers_validate"),
+    ).execute()
+    config.enabled_providers = selected_providers
 
-    config.volcengine.api_key = Prompt.ask(
-        tr(config.language, "bootstrap_volc_api_key_prompt"),
-        default=config.volcengine.api_key,
-        show_default=False,
-        console=console,
-    ).strip()
-    config.volcengine.app_key = Prompt.ask(
-        tr(config.language, "bootstrap_volc_app_key_prompt"),
-        default=config.volcengine.app_key,
-        show_default=False,
-        console=console,
-    ).strip()
-    config.volcengine.access_key = Prompt.ask(
-        tr(config.language, "bootstrap_volc_access_key_prompt"),
-        default=config.volcengine.access_key,
-        show_default=False,
-        console=console,
-    ).strip()
-    config.volcengine.resource_id = Prompt.ask(
-        tr(config.language, "bootstrap_volc_resource_prompt"),
-        default=config.volcengine.resource_id,
-        console=console,
-    ).strip()
-    config.volcengine.model_name = Prompt.ask(
-        tr(config.language, "bootstrap_volc_model_prompt"),
-        default=config.volcengine.model_name,
-        console=console,
-    ).strip()
-    config.volcengine.use_itn = Confirm.ask(
-        tr(config.language, "bootstrap_volc_itn_prompt"),
-        default=config.volcengine.use_itn,
-        console=console,
-    )
+    # ── 3. Configure each selected provider ──────────────────
+    for provider in selected_providers:
+        console.print()
+        console.rule(f"[bold cyan]{tr(lang, f'provider_{provider}_name')}[/bold cyan]")
+        console.print(f"[dim]{tr(lang, f'provider_{provider}_desc')}[/dim]")
+        console.print()
 
+        if provider == "whisper":
+            _configure_whisper(config, lang)
+        elif provider == "sensevoice":
+            _configure_sensevoice(config, lang)
+        elif provider == "volcengine":
+            _configure_volcengine(config, lang)
+
+    # ── 4. Pick default provider ─────────────────────────────
+    console.print()
+    if len(selected_providers) == 1:
+        config.default_provider = selected_providers[0]
+    else:
+        default_choices = [
+            {"name": f"{p} — {tr(lang, f'provider_{p}_short')}", "value": p}
+            for p in selected_providers
+        ]
+        config.default_provider = inquirer.select(
+            message=tr(lang, "bootstrap_default_provider_prompt"),
+            choices=default_choices,
+            default=config.default_provider if config.default_provider in selected_providers else selected_providers[0],
+        ).execute()
+
+    # ── Save ─────────────────────────────────────────────────
     config.save(settings)
     console.print()
-    console.print(f"[green]{tr(config.language, 'bootstrap_saved', path=settings.config_path)}[/green]")
-    console.print(tr(config.language, "bootstrap_finish"))
+    console.print(f"[green]{tr(lang, 'bootstrap_saved', path=settings.config_path)}[/green]")
+    console.print(tr(lang, "bootstrap_finish"))
     return config
 
 
@@ -117,35 +117,71 @@ def ensure_bootstrap(*, settings: Settings, allow_prompt: bool = True) -> AppCon
     return config
 
 
-def _prompt_language(console: Console, *, default: str) -> str:
-    console.rule(tr(default, "bootstrap_section_language"))
-    table = Table(show_header=True, header_style="bold cyan")
-    table.add_column("#", justify="right", style="cyan", no_wrap=True)
-    table.add_column(tr(default, "bootstrap_language_choices"))
-    for index, (code, label) in enumerate(SUPPORTED_LANGUAGES.items(), start=1):
-        table.add_row(str(index), f"{label} ({code})")
-    console.print(table)
-
-    choices = {str(index): code for index, code in enumerate(SUPPORTED_LANGUAGES.keys(), start=1)}
-    reverse = {code: key for key, code in choices.items()}
-    selected = Prompt.ask(
-        tr(default, "bootstrap_language_prompt"),
-        choices=list(choices.keys()),
-        default=reverse.get(default, "1"),
-        console=console,
-    )
-    return choices[selected]
+# ── Provider configuration flows ─────────────────────────────
 
 
-def _provider_overview_table(language: str) -> Table:
-    table = Table(show_header=True, header_style="bold cyan")
-    table.add_column(tr(language, "bootstrap_provider_name_col"), style="bold")
-    table.add_column(tr(language, "bootstrap_provider_usage_col"))
-    table.add_row("whisper", _provider_label(language, "whisper"))
-    table.add_row("sensevoice", _provider_label(language, "sensevoice"))
-    table.add_row("volcengine", _provider_label(language, "volcengine"))
-    return table
+def _configure_whisper(config: AppConfig, lang: str) -> None:
+    whisper_model = inquirer.select(
+        message=tr(lang, "bootstrap_whisper_model_prompt"),
+        choices=[
+            {"name": "tiny    — " + tr(lang, "whisper_model_tiny"), "value": "tiny"},
+            {"name": "base    — " + tr(lang, "whisper_model_base"), "value": "base"},
+            {"name": "small   — " + tr(lang, "whisper_model_small"), "value": "small"},
+            {"name": "medium  — " + tr(lang, "whisper_model_medium"), "value": "medium"},
+            {"name": "large   — " + tr(lang, "whisper_model_large"), "value": "large"},
+        ],
+        default=config.default_model if config.default_model in ("tiny", "base", "small", "medium", "large") else "small",
+    ).execute()
+    # Only set default_model if whisper is (or becomes) default
+    if config.default_provider == "whisper" or len(config.enabled_providers) == 1:
+        config.default_model = whisper_model
 
 
-def _provider_label(language: str, provider: str) -> str:
-    return f"{tr(language, f'provider_{provider}_name')}\n{tr(language, f'provider_{provider}_desc')}"
+def _configure_sensevoice(config: AppConfig, lang: str) -> None:
+    config.sensevoice.model_dir = inquirer.text(
+        message=tr(lang, "bootstrap_sensevoice_dir_prompt"),
+        default=config.sensevoice.model_dir,
+    ).execute().strip()
+    config.sensevoice.language = inquirer.select(
+        message=tr(lang, "bootstrap_sensevoice_lang_prompt"),
+        choices=[
+            {"name": "auto (" + tr(lang, "sensevoice_lang_auto") + ")", "value": "auto"},
+            {"name": "zh", "value": "zh"},
+            {"name": "en", "value": "en"},
+            {"name": "ja", "value": "ja"},
+            {"name": "ko", "value": "ko"},
+            {"name": "yue (Cantonese)", "value": "yue"},
+        ],
+        default=config.sensevoice.language,
+    ).execute()
+    config.sensevoice.use_itn = inquirer.confirm(
+        message=tr(lang, "bootstrap_sensevoice_itn_prompt"),
+        default=config.sensevoice.use_itn,
+    ).execute()
+
+
+def _configure_volcengine(config: AppConfig, lang: str) -> None:
+    config.volcengine.api_key = inquirer.secret(
+        message=tr(lang, "bootstrap_volc_api_key_prompt"),
+        default=config.volcengine.api_key,
+    ).execute().strip()
+    config.volcengine.app_key = inquirer.secret(
+        message=tr(lang, "bootstrap_volc_app_key_prompt"),
+        default=config.volcengine.app_key,
+    ).execute().strip()
+    config.volcengine.access_key = inquirer.secret(
+        message=tr(lang, "bootstrap_volc_access_key_prompt"),
+        default=config.volcengine.access_key,
+    ).execute().strip()
+    config.volcengine.resource_id = inquirer.text(
+        message=tr(lang, "bootstrap_volc_resource_prompt"),
+        default=config.volcengine.resource_id,
+    ).execute().strip()
+    config.volcengine.model_name = inquirer.text(
+        message=tr(lang, "bootstrap_volc_model_prompt"),
+        default=config.volcengine.model_name,
+    ).execute().strip()
+    config.volcengine.use_itn = inquirer.confirm(
+        message=tr(lang, "bootstrap_volc_itn_prompt"),
+        default=config.volcengine.use_itn,
+    ).execute()

@@ -1,5 +1,34 @@
 # 更新日志
 
+## 2026-04-10 (v2)
+
+### CLI 体验优化
+
+- 命令别名（tx / init / ui / srv / win / diag / lang）改为隐藏，不再重复显示在帮助列表中
+- 主命令的帮助文案中以括号标注缩写，如"转写视频或音频（缩写: tx）"
+- 添加 InquirerPy 依赖，替换 rich.prompt 的文本输入
+
+### Bootstrap 初始化向导重写
+
+- 语言和引擎选择改为箭头键 + 回车交互，取代手动输入
+- 支持 checkbox 多选 provider：可同时启用多个转写引擎，按顺序逐个配置
+- 只有选中的 provider 才会进入配置流程，不再无差别询问所有参数
+- 配置文件新增 `enabled_providers` 字段，向后兼容旧配置
+- Whisper 模型选择改为带说明的列表（tiny/base/small/medium/large）
+- SenseVoice 语言选择改为带说明的下拉列表
+
+### i18n 文案优化
+
+- 全面重写中英文文案，更自然、更口语化
+- doctor 状态加上 ✓ / ✗ 符号
+- 新增 whisper 模型描述、sensevoice 语言描述等辅助文案
+
+### Web UI 重设计
+
+- 使用 Tailwind CSS 重新设计 index.html 和 result.html
+- 简约大方的现代风格，响应式布局
+- 表单控件样式统一，结果页改为卡片式展示
+
 ## 2026-04-10
 
 ### 重构基础

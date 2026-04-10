@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-04-10 (v2)
+
+### CLI UX
+
+- command aliases (tx / init / ui / srv / win / diag / lang) are now hidden from help output
+- primary commands show their alias in parentheses, e.g. "Transcribe a video or audio file (alias: tx)"
+- added InquirerPy dependency, replacing rich.prompt text input
+
+### Bootstrap wizard rewrite
+
+- language and engine selection now use arrow-key navigation instead of typed input
+- multi-provider support via checkbox: enable multiple engines, configure each in sequence
+- only selected providers enter the configuration flow — no more asking for unrelated API keys
+- config file gains `enabled_providers` field, backwards-compatible with old configs
+- whisper model selection shows descriptions (tiny/base/small/medium/large)
+- sensevoice language selection uses a descriptive list
+
+### I18n copy refresh
+
+- rewrote all Chinese and English copy to feel more natural and conversational
+- doctor status now shows ✓ / ✗ symbols
+- added whisper model descriptions, sensevoice language descriptions, and other helper text
+
+### Web UI redesign
+
+- rebuilt index.html and result.html with Tailwind CSS
+- clean, modern, responsive layout
+- unified form controls, card-style result display
+
 ## 2026-04-10
 
 ### Refactor Foundation

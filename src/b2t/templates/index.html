@@ -1,49 +1,95 @@
 <!DOCTYPE html>
-<html lang="{{ lang }}">
+<html lang="{{ lang }}" class="h-full">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ t("web_title") }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .form-input:focus { box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3); }
+  </style>
 </head>
-<body>
-  <main>
-    <h1>{{ t("web_title") }}</h1>
-    <p>{{ t("web_subtitle") }}</p>
+<body class="h-full bg-gray-50 text-gray-800">
 
-    {% if error %}
-    <section>
-      <h2>{{ t("web_error") }}</h2>
-      <p>{{ error }}</p>
-    </section>
-    {% endif %}
+  <div class="min-h-full flex flex-col">
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200">
+      <div class="max-w-2xl mx-auto px-6 py-4 flex items-center gap-3">
+        <h1 class="text-xl font-semibold tracking-tight">{{ t("web_title") }}</h1>
+        <span class="text-sm text-gray-400">{{ t("web_subtitle") }}</span>
+      </div>
+    </header>
 
-    <section>
-      <h2>{{ t("web_form_title") }}</h2>
-      <form method="post" action="/transcribe">
-        <p>
-          <label for="source">{{ t("web_source") }}</label><br>
-          <input id="source" name="source" type="text" value="{{ values.source }}" required>
-        </p>
-        <p>
-          <label for="provider">{{ t("web_provider") }}</label><br>
-          <select id="provider" name="provider">
-            <option value="whisper" {% if values.provider == "whisper" %}selected{% endif %}>whisper</option>
-            <option value="sensevoice" {% if values.provider == "sensevoice" %}selected{% endif %}>sensevoice</option>
-            <option value="volcengine" {% if values.provider == "volcengine" %}selected{% endif %}>volcengine</option>
-          </select>
-        </p>
-        <p>
-          <label for="model">{{ t("web_model") }}</label><br>
-          <input id="model" name="model" type="text" value="{{ values.model }}">
-        </p>
-        <p>
-          <label for="prompt">{{ t("web_prompt") }}</label><br>
-          <textarea id="prompt" name="prompt" rows="6" cols="80">{{ values.prompt }}</textarea>
-        </p>
-        <p>
-          <button type="submit">{{ t("web_submit") }}</button>
-        </p>
+    <!-- Main -->
+    <main class="flex-1 max-w-2xl mx-auto w-full px-6 py-8">
+
+      {% if error %}
+      <div class="mb-6 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
+        <p class="text-sm font-medium text-red-800">{{ t("web_error") }}</p>
+        <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+      </div>
+      {% endif %}
+
+      <form method="post" action="/transcribe" class="space-y-5">
+        <!-- Source -->
+        <div>
+          <label for="source" class="block text-sm font-medium text-gray-700 mb-1">{{ t("web_source") }}</label>
+          <input
+            id="source" name="source" type="text" required
+            value="{{ values.source }}"
+            placeholder="BV1xxxxxxxxx"
+            class="form-input w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-500"
+          >
+        </div>
+
+        <!-- Provider + Model row -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="provider" class="block text-sm font-medium text-gray-700 mb-1">{{ t("web_provider") }}</label>
+            <select
+              id="provider" name="provider"
+              class="form-input w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 bg-white"
+            >
+              <option value="whisper" {% if values.provider == "whisper" %}selected{% endif %}>whisper</option>
+              <option value="sensevoice" {% if values.provider == "sensevoice" %}selected{% endif %}>sensevoice</option>
+              <option value="volcengine" {% if values.provider == "volcengine" %}selected{% endif %}>volcengine</option>
+            </select>
+          </div>
+          <div>
+            <label for="model" class="block text-sm font-medium text-gray-700 mb-1">{{ t("web_model") }}</label>
+            <input
+              id="model" name="model" type="text"
+              value="{{ values.model }}"
+              class="form-input w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-500"
+            >
+          </div>
+        </div>
+
+        <!-- Prompt -->
+        <div>
+          <label for="prompt" class="block text-sm font-medium text-gray-700 mb-1">{{ t("web_prompt") }}</label>
+          <textarea
+            id="prompt" name="prompt" rows="3"
+            class="form-input w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition focus:border-indigo-500 resize-y"
+          >{{ values.prompt }}</textarea>
+        </div>
+
+        <!-- Submit -->
+        <button
+          type="submit"
+          class="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 active:bg-indigo-800 transition"
+        >
+          {{ t("web_submit") }}
+        </button>
       </form>
-    </section>
-  </main>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-100 py-4">
+      <p class="text-center text-xs text-gray-400">bili2text &middot; CLI-first</p>
+    </footer>
+  </div>
+
 </body>
 </html>

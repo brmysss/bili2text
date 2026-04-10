@@ -7,4 +7,4 @@ def test_normalize_language_accepts_short_codes() -> None:
 
 
 def test_translate_falls_back_to_default_language() -> None:
-    assert tr("unknown", "web_submit") == "开始转写"
+    assert tr("unknown", "web_submit") == "开始"

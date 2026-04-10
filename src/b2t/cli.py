@@ -36,7 +36,7 @@ def create_app(language: str = DEFAULT_LANGUAGE) -> typer.Typer:
             raise typer.Exit()
 
     @app.command("transcribe", help=tr(language, "cmd_transcribe_help"))
-    @app.command("tx", help=tr(language, "cmd_transcribe_help"))
+    @app.command("tx", hidden=True)
     def transcribe(
         source: str = typer.Argument(..., help=tr(language, "arg_source_help")),
         provider: str | None = typer.Option(None, "--provider", help=tr(language, "opt_provider_help")),
@@ -59,7 +59,7 @@ def create_app(language: str = DEFAULT_LANGUAGE) -> typer.Typer:
         typer.echo(tr(config.language, "metadata_saved", path=result.metadata_path))
 
     @app.command("doctor", help=tr(language, "cmd_doctor_help"))
-    @app.command("diag", help=tr(language, "cmd_doctor_help"))
+    @app.command("diag", hidden=True)
     def doctor(
         workspace: Path | None = typer.Option(None, "--workspace", help=tr(language, "opt_workspace_help")),
     ) -> None:
@@ -100,7 +100,7 @@ def create_app(language: str = DEFAULT_LANGUAGE) -> typer.Typer:
             typer.echo(f"{label}: {status}")
 
     @app.command("bootstrap", help=tr(language, "cmd_bootstrap_help"))
-    @app.command("init", help=tr(language, "cmd_bootstrap_help"))
+    @app.command("init", hidden=True)
     def bootstrap(
         workspace: Path | None = typer.Option(None, "--workspace", help=tr(language, "opt_workspace_help")),
     ) -> None:
@@ -109,7 +109,7 @@ def create_app(language: str = DEFAULT_LANGUAGE) -> typer.Typer:
         run_bootstrap(settings=settings, interactive=True)
 
     @app.command("web", help=tr(language, "cmd_web_help"))
-    @app.command("ui", help=tr(language, "cmd_web_help"))
+    @app.command("ui", hidden=True)
     def web_ui(
         host: str = typer.Option("127.0.0.1", "--host", help=tr(language, "opt_host_help")),
         port: int = typer.Option(8000, "--port", help=tr(language, "opt_port_help")),
@@ -121,7 +121,7 @@ def create_app(language: str = DEFAULT_LANGUAGE) -> typer.Typer:
         _run_server(host=host, port=port, provider=provider, model=model, workspace=workspace)
 
     @app.command("server", help=tr(language, "cmd_server_help"))
-    @app.command("srv", help=tr(language, "cmd_server_help"))
+    @app.command("srv", hidden=True)
     def server_mode(
         host: str = typer.Option("0.0.0.0", "--host", help=tr(language, "opt_host_help")),
         port: int = typer.Option(8000, "--port", help=tr(language, "opt_port_help")),
@@ -133,7 +133,7 @@ def create_app(language: str = DEFAULT_LANGUAGE) -> typer.Typer:
         _run_server(host=host, port=port, provider=provider, model=model, workspace=workspace)
 
     @app.command("window", help=tr(language, "cmd_window_help"))
-    @app.command("win", help=tr(language, "cmd_window_help"))
+    @app.command("win", hidden=True)
     def window_mode(
         provider: str | None = typer.Option(None, "--provider", help=tr(language, "opt_provider_help")),
         model: str | None = typer.Option(None, "--model", help=tr(language, "opt_model_help")),
@@ -158,7 +158,7 @@ def create_app(language: str = DEFAULT_LANGUAGE) -> typer.Typer:
         )
 
     @app.command("language", help=tr(language, "cmd_language_help"))
-    @app.command("lang", help=tr(language, "cmd_language_help"))
+    @app.command("lang", hidden=True)
     def language_command(
         value: str = typer.Argument(..., help=tr(language, "opt_language_help")),
         workspace: Path | None = typer.Option(None, "--workspace", help=tr(language, "opt_workspace_help")),
