@@ -108,6 +108,24 @@ def server_mode(
     _run_server(host=host, port=port, model=model, workspace=workspace)
 
 
+@app.command(name="window")
+def window_mode(
+    model: str = typer.Option("small", "--model"),
+    workspace: Path | None = typer.Option(None, "--workspace"),
+) -> None:
+    """Launch the Tk window feature."""
+    from b2t.window_app import run_window
+
+    run_window(
+        pipeline_factory=lambda selected_model, selected_workspace: build_pipeline(
+            workspace=selected_workspace or workspace,
+            model=selected_model or model,
+        ),
+        default_model=model,
+        default_workspace=workspace,
+    )
+
+
 def main() -> None:
     app(prog_name="bili2text")
 

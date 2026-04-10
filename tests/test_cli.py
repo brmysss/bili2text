@@ -11,6 +11,7 @@ def test_cli_help_renders() -> None:
     assert result.exit_code == 0
     assert "CLI-first Bilibili to text toolkit." in result.stdout
     assert "transcribe" in result.stdout
+    assert "window" in result.stdout
 
 
 def test_doctor_command_runs_without_crashing() -> None:
