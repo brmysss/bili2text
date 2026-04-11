@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from pathlib import Path
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -161,8 +161,16 @@ def create_app(
         return JSONResponse({"task_id": task.id, "status": task.status})
 
     @app.get("/api/tasks")
-    async def list_tasks() -> JSONResponse:
-        return JSONResponse({"items": [asdict(task) for task in task_service.list_tasks()]})
+    async def list_tasks(
+        status: str | None = Query(None),
+        provider: str | None = Query(None),
+    ) -> JSONResponse:
+        return JSONResponse(
+            {
+                "items": [asdict(task) for task in task_service.list_tasks() if (status is None or task.status == status) and (provider is None or task.provider == provider)],
+                "filters": {"status": status, "provider": provider},
+            }
+        )
 
     @app.get("/api/tasks/{task_id}")
     async def get_task(task_id: str) -> JSONResponse:
@@ -178,9 +186,29 @@ def create_app(
             raise HTTPException(status_code=404, detail="task not found")
         return JSONResponse(asdict(task))
 
+    @app.get("/api/tasks/{task_id}/events")
+    async def get_task_events(task_id: str) -> JSONResponse:
+        task = task_service.get_task(task_id)
+        if task is None:
+            raise HTTPException(status_code=404, detail="task not found")
+        return JSONResponse({"items": database.list_task_events(task_id)})
+
     @app.get("/api/videos")
-    async def list_videos_api() -> JSONResponse:
-        return JSONResponse({"items": database.list_videos()})
+    async def list_videos_api(
+        query: str | None = Query(None),
+        category_id: int | None = Query(None),
+        tag_id: int | None = Query(None),
+    ) -> JSONResponse:
+        return JSONResponse(
+            {
+                "items": database.list_videos(query=query, category_id=category_id, tag_id=tag_id),
+                "filters": {
+                    "query": query,
+                    "category_id": category_id,
+                    "tag_id": tag_id,
+                },
+            }
+        )
 
     @app.get("/api/videos/{video_id}")
     async def get_video_api(video_id: int) -> JSONResponse:
@@ -190,8 +218,14 @@ def create_app(
         return JSONResponse(video)
 
     @app.get("/api/videos/{video_id}/transcript")
-    async def get_video_transcript(video_id: int) -> JSONResponse:
-        return JSONResponse(library.load_active_transcript(video_id))
+    async def get_video_transcript(video_id: int, version_id: int | None = Query(None)) -> JSONResponse:
+        if version_id is None:
+            return JSONResponse(library.load_active_transcript(video_id))
+        return JSONResponse(library.load_transcript_version(video_id, version_id))
+
+    @app.get("/api/videos/{video_id}/metadata")
+    async def get_video_metadata(video_id: int) -> JSONResponse:
+        return JSONResponse(library.load_video_metadata(video_id))
 
     @app.put("/api/videos/{video_id}/transcript")
     async def update_video_transcript(video_id: int, payload: TranscriptUpdateRequest) -> JSONResponse:
@@ -202,6 +236,10 @@ def create_app(
     async def list_video_versions(video_id: int) -> JSONResponse:
         versions = [asdict(version) for version in database.list_transcript_versions(video_id)]
         return JSONResponse({"items": versions})
+
+    @app.get("/api/videos/{video_id}/versions/{version_id}")
+    async def get_video_version(video_id: int, version_id: int) -> JSONResponse:
+        return JSONResponse(library.load_transcript_version(video_id, version_id))
 
     @app.post("/api/videos/{video_id}/versions/{version_id}/activate")
     async def activate_video_version(video_id: int, version_id: int) -> JSONResponse:
@@ -218,6 +256,20 @@ def create_app(
             raise HTTPException(status_code=400, detail="name is required")
         category = database.create_category(payload.name)
         return JSONResponse(category)
+
+    @app.put("/api/categories/{category_id}")
+    async def update_category_api(category_id: int, payload: CategoryRequest) -> JSONResponse:
+        if not payload.name:
+            raise HTTPException(status_code=400, detail="name is required")
+        category = database.update_category(category_id, payload.name)
+        if category is None:
+            raise HTTPException(status_code=404, detail="category not found")
+        return JSONResponse(category)
+
+    @app.delete("/api/categories/{category_id}")
+    async def delete_category_api(category_id: int) -> JSONResponse:
+        database.delete_category(category_id)
+        return JSONResponse({"category_id": category_id})
 
     @app.post("/api/videos/{video_id}/category")
     async def assign_category_api(video_id: int, payload: CategoryRequest) -> JSONResponse:
@@ -238,6 +290,20 @@ def create_app(
             raise HTTPException(status_code=400, detail="name is required")
         tag = database.create_tag(payload.name)
         return JSONResponse(tag)
+
+    @app.put("/api/tags/{tag_id}")
+    async def update_tag_api(tag_id: int, payload: TagRequest) -> JSONResponse:
+        if not payload.name:
+            raise HTTPException(status_code=400, detail="name is required")
+        tag = database.update_tag(tag_id, payload.name)
+        if tag is None:
+            raise HTTPException(status_code=404, detail="tag not found")
+        return JSONResponse(tag)
+
+    @app.delete("/api/tags/{tag_id}")
+    async def delete_tag_api(tag_id: int) -> JSONResponse:
+        database.delete_tag(tag_id)
+        return JSONResponse({"tag_id": tag_id})
 
     @app.post("/api/videos/{video_id}/tags")
     async def add_video_tag_api(video_id: int, payload: TagRequest) -> JSONResponse:

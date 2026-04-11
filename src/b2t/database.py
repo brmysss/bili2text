@@ -4,12 +4,10 @@ import json
 import sqlite3
 import threading
 import uuid
-from dataclasses import asdict
 from datetime import datetime
-from pathlib import Path
 
 from b2t.config import Settings
-from b2t.models import ProgressSnapshot, TaskRecord, TranscriptVersionRecord, VideoRecord
+from b2t.models import ProgressSnapshot, TaskRecord, TranscriptVersionRecord
 
 
 def utc_now() -> str:
@@ -238,10 +236,48 @@ class AppDatabase:
             row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
         return None if row is None else self._task_from_row(row)
 
-    def list_tasks(self) -> list[TaskRecord]:
+    def list_tasks(self, *, status: str | None = None, provider: str | None = None) -> list[TaskRecord]:
+        clauses: list[str] = []
+        params: list[object] = []
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        if provider:
+            clauses.append("provider = ?")
+            params.append(provider)
+        sql = "SELECT * FROM tasks"
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY created_at DESC"
         with self._connect() as conn:
-            rows = conn.execute("SELECT * FROM tasks ORDER BY created_at DESC").fetchall()
+            rows = conn.execute(sql, tuple(params)).fetchall()
         return [self._task_from_row(row) for row in rows]
+
+    def list_task_events(self, task_id: str) -> list[dict[str, object]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, task_id, status, stage, message, percent, indeterminate, detail_json, created_at
+                FROM task_progress_events
+                WHERE task_id = ?
+                ORDER BY id ASC
+                """,
+                (task_id,),
+            ).fetchall()
+        return [
+            {
+                "id": int(row["id"]),
+                "task_id": row["task_id"],
+                "status": row["status"],
+                "stage": row["stage"],
+                "message": row["message"],
+                "percent": float(row["percent"]),
+                "indeterminate": bool(row["indeterminate"]),
+                "detail": json.loads(row["detail_json"] or "{}"),
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
 
     def create_video(
         self,
@@ -331,16 +367,39 @@ class AppDatabase:
                 (version_id, now, video_id),
             )
 
-    def list_videos(self) -> list[dict[str, object]]:
+    def list_videos(
+        self,
+        *,
+        query: str | None = None,
+        category_id: int | None = None,
+        tag_id: int | None = None,
+    ) -> list[dict[str, object]]:
+        clauses: list[str] = []
+        params: list[object] = []
+        join_video_tags = tag_id is not None
+        if query:
+            clauses.append("(LOWER(v.title) LIKE ? OR LOWER(v.display_name) LIKE ? OR LOWER(v.source_input) LIKE ?)")
+            needle = f"%{query.strip().lower()}%"
+            params.extend([needle, needle, needle])
+        if category_id is not None:
+            clauses.append("v.category_id = ?")
+            params.append(category_id)
+        if tag_id is not None:
+            clauses.append("vt.tag_id = ?")
+            params.append(tag_id)
+
+        sql = """
+            SELECT DISTINCT v.*, c.name AS category_name
+            FROM videos v
+            LEFT JOIN categories c ON c.id = v.category_id
+        """
+        if join_video_tags:
+            sql += " JOIN video_tags vt ON vt.video_id = v.id "
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY v.created_at DESC "
         with self._connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT v.*, c.name AS category_name
-                FROM videos v
-                LEFT JOIN categories c ON c.id = v.category_id
-                ORDER BY v.created_at DESC
-                """
-            ).fetchall()
+            rows = conn.execute(sql, tuple(params)).fetchall()
             tags = self._load_tags_by_video(conn)
         return [self._video_payload(row, tags.get(int(row["id"]), [])) for row in rows]
 
@@ -368,6 +427,14 @@ class AppDatabase:
             ).fetchall()
         return [self._version_from_row(row) for row in rows]
 
+    def get_transcript_version(self, video_id: int, version_id: int) -> TranscriptVersionRecord | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM transcript_versions WHERE video_id = ? AND id = ?",
+                (video_id, version_id),
+            ).fetchone()
+        return None if row is None else self._version_from_row(row)
+
     def get_active_transcript_version(self, video_id: int) -> TranscriptVersionRecord | None:
         with self._connect() as conn:
             row = conn.execute(
@@ -387,6 +454,18 @@ class AppDatabase:
             row = conn.execute("SELECT * FROM categories WHERE slug = ?", (slug,)).fetchone()
         assert row is not None
         return dict(row)
+
+    def update_category(self, category_id: int, name: str) -> dict[str, object] | None:
+        slug = slugify(name)
+        with self._connect() as conn:
+            conn.execute("UPDATE categories SET name = ?, slug = ? WHERE id = ?", (name, slug, category_id))
+            row = conn.execute("SELECT * FROM categories WHERE id = ?", (category_id,)).fetchone()
+        return None if row is None else dict(row)
+
+    def delete_category(self, category_id: int) -> None:
+        with self._connect() as conn:
+            conn.execute("UPDATE videos SET category_id = NULL WHERE category_id = ?", (category_id,))
+            conn.execute("DELETE FROM categories WHERE id = ?", (category_id,))
 
     def list_categories(self) -> list[dict[str, object]]:
         with self._connect() as conn:
@@ -411,6 +490,18 @@ class AppDatabase:
             row = conn.execute("SELECT * FROM tags WHERE slug = ?", (slug,)).fetchone()
         assert row is not None
         return dict(row)
+
+    def update_tag(self, tag_id: int, name: str) -> dict[str, object] | None:
+        slug = slugify(name)
+        with self._connect() as conn:
+            conn.execute("UPDATE tags SET name = ?, slug = ? WHERE id = ?", (name, slug, tag_id))
+            row = conn.execute("SELECT * FROM tags WHERE id = ?", (tag_id,)).fetchone()
+        return None if row is None else dict(row)
+
+    def delete_tag(self, tag_id: int) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM video_tags WHERE tag_id = ?", (tag_id,))
+            conn.execute("DELETE FROM tags WHERE id = ?", (tag_id,))
 
     def list_tags(self) -> list[dict[str, object]]:
         with self._connect() as conn:

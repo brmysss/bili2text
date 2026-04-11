@@ -146,3 +146,96 @@ def test_api_supports_categories_tags_and_versions(tmp_path: Path) -> None:
 
     activate = client.post(f"/api/videos/{task.video_id}/versions/{versions[-1]['id']}/activate")
     assert activate.status_code == 200
+
+
+def test_api_exposes_task_events_and_filtered_video_queries(tmp_path: Path) -> None:
+    app, service, _, _ = build_test_app(tmp_path)
+    client = TestClient(app)
+
+    task_id = client.post(
+        "/api/tasks/transcribe",
+        json={
+            "source": "https://www.bilibili.com/video/BV1xx411c7XD",
+            "provider": "whisper",
+            "model": "small",
+            "prompt": "",
+        },
+    ).json()["task_id"]
+    task = service.wait_for_task(task_id)
+    assert task.video_id is not None
+
+    events = client.get(f"/api/tasks/{task_id}/events")
+    assert events.status_code == 200
+    assert len(events.json()["items"]) >= 2
+    assert events.json()["items"][0]["task_id"] == task_id
+
+    category = client.post("/api/categories", json={"name": "Research"}).json()
+    tag = client.post("/api/tags", json={"name": "important"}).json()
+    client.post(f"/api/videos/{task.video_id}/category", json={"category_id": category["id"]})
+    client.post(f"/api/videos/{task.video_id}/tags", json={"tag_id": tag["id"]})
+
+    filtered = client.get(f"/api/videos?query=demo&category_id={category['id']}&tag_id={tag['id']}")
+    assert filtered.status_code == 200
+    assert len(filtered.json()["items"]) == 1
+    assert filtered.json()["items"][0]["id"] == task.video_id
+
+
+def test_api_supports_category_tag_crud_and_version_detail(tmp_path: Path) -> None:
+    app, service, _, _ = build_test_app(tmp_path)
+    client = TestClient(app)
+
+    task_id = client.post(
+        "/api/tasks/transcribe",
+        json={
+            "source": "https://www.bilibili.com/video/BV1xx411c7XD",
+            "provider": "whisper",
+            "model": "small",
+            "prompt": "",
+        },
+    ).json()["task_id"]
+    task = service.wait_for_task(task_id)
+    assert task.video_id is not None
+
+    category = client.post("/api/categories", json={"name": "Research"}).json()
+    updated_category = client.put(f"/api/categories/{category['id']}", json={"name": "Archive"}).json()
+    assert updated_category["name"] == "Archive"
+
+    tag = client.post("/api/tags", json={"name": "important"}).json()
+    updated_tag = client.put(f"/api/tags/{tag['id']}", json={"name": "featured"}).json()
+    assert updated_tag["name"] == "featured"
+
+    client.put(f"/api/videos/{task.video_id}/transcript", json={"text": "edited once"})
+    versions = client.get(f"/api/videos/{task.video_id}/versions").json()["items"]
+    version_detail = client.get(f"/api/videos/{task.video_id}/versions/{versions[0]['id']}")
+    assert version_detail.status_code == 200
+    assert "text" in version_detail.json()
+
+    delete_tag = client.delete(f"/api/tags/{updated_tag['id']}")
+    assert delete_tag.status_code == 200
+    delete_category = client.delete(f"/api/categories/{updated_category['id']}")
+    assert delete_category.status_code == 200
+
+
+def test_api_exposes_task_filters_and_video_metadata(tmp_path: Path) -> None:
+    app, service, _, _ = build_test_app(tmp_path)
+    client = TestClient(app)
+
+    task_id = client.post(
+        "/api/tasks/transcribe",
+        json={
+            "source": "https://www.bilibili.com/video/BV1xx411c7XD",
+            "provider": "sensevoice",
+            "model": "tiny",
+            "prompt": "",
+        },
+    ).json()["task_id"]
+    task = service.wait_for_task(task_id)
+    assert task.video_id is not None
+
+    filtered_tasks = client.get("/api/tasks?status=completed&provider=sensevoice")
+    assert filtered_tasks.status_code == 200
+    assert len(filtered_tasks.json()["items"]) == 1
+
+    metadata = client.get(f"/api/videos/{task.video_id}/metadata")
+    assert metadata.status_code == 200
+    assert metadata.json()["engine"] == "sensevoice"

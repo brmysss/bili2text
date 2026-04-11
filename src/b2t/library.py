@@ -73,13 +73,27 @@ class WorkspaceLibrary:
         version = self.database.get_active_transcript_version(video_id)
         if version is None:
             raise RuntimeError(f"active transcript not found for video {video_id}")
+        return self.load_transcript_version(video_id, version.id)
+
+    def load_transcript_version(self, video_id: int, version_id: int) -> dict[str, object]:
+        version = self.database.get_transcript_version(video_id, version_id)
+        if version is None:
+            raise RuntimeError(f"transcript version not found: video={video_id} version={version_id}")
         path = Path(version.file_path)
         return {
             "version_id": version.id,
             "kind": version.kind,
             "file_path": version.file_path,
+            "is_active": version.is_active,
             "text": path.read_text(encoding="utf-8"),
         }
+
+    def load_video_metadata(self, video_id: int) -> dict[str, object]:
+        video = self.database.get_video(video_id)
+        if video is None:
+            raise RuntimeError(f"video not found: {video_id}")
+        metadata_path = Path(str(video["metadata_path"]))
+        return json.loads(metadata_path.read_text(encoding="utf-8"))
 
     def index_existing_workspace(self) -> None:
         self.settings.ensure_directories()
