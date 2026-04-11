@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import importlib
 import importlib.util
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
 from b2t.i18n import dependency_sync_guidance
+from b2t.progress import ProgressReporter
 from b2t.transcribers.base import Transcriber
 
 
@@ -21,19 +24,20 @@ class LocalWhisperTranscriber(Transcriber):
         audio_path: Path,
         *,
         prompt: str | None = None,
-        progress=None,
+        progress: ProgressReporter | None = None,
     ) -> dict[str, Any]:
         model = self._ensure_model()
         if progress is not None:
-            progress.running("transcribing", message="transcribing", indeterminate=True)
+            progress.running("transcribing", message="transcribing", stage_progress=0.0)
         transcribe_options: dict[str, Any] = {
             "initial_prompt": prompt or None,
-            # `verbose=None` keeps the current Whisper release quiet on both text and frame progress.
-            "verbose": None,
+            # `verbose=False` keeps Whisper text output quiet while still driving the internal tqdm loop.
+            "verbose": False,
         }
         if self.device == "cpu":
             transcribe_options["fp16"] = False
-        result = model.transcribe(str(audio_path), **transcribe_options)
+        with whisper_progress(progress):
+            result = model.transcribe(str(audio_path), **transcribe_options)
         text = (result.get("text") or "").strip()
         return {
             "text": text,
@@ -75,3 +79,53 @@ def build_whisper_import_error_message(*, whisper_available: bool | None = None)
         f"{dependency_sync_guidance('en-US')} "
         "Whisper currently needs Python 3.12 or below."
     )
+
+
+@contextmanager
+def whisper_progress(progress: ProgressReporter | None):
+    if progress is None:
+        yield
+        return
+
+    module = importlib.import_module("whisper.transcribe")
+    original = module.tqdm.tqdm
+    module.tqdm.tqdm = lambda *args, **kwargs: WhisperProgressTqdm(progress, *args, **kwargs)
+    try:
+        yield
+    finally:
+        module.tqdm.tqdm = original
+
+
+class WhisperProgressTqdm:
+    def __init__(self, progress: ProgressReporter, *args, total: int | None = None, disable: bool = False, **kwargs) -> None:
+        self.progress = progress
+        self.total = total or 0
+        self.disable = disable
+        self.n = 0
+
+    def __enter__(self) -> "WhisperProgressTqdm":
+        if not self.disable:
+            self.progress.running("transcribing", message="transcribing", stage_progress=0.0)
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        return False
+
+    def update(self, amount: int = 1) -> None:
+        self.n += amount
+        if self.disable:
+            return
+        if self.total <= 0:
+            self.progress.running("transcribing", message="transcribing", indeterminate=True)
+            return
+        self.progress.running(
+            "transcribing",
+            message="transcribing",
+            stage_progress=min(1.0, self.n / self.total),
+        )
+
+    def refresh(self) -> None:
+        return
+
+    def close(self) -> None:
+        return

@@ -2,73 +2,147 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from b2t.config import Settings
+from b2t.database import AppDatabase
+from b2t.library import WorkspaceLibrary
 from b2t.models import SourceRef, TranscriptResult
+from b2t.tasks import TaskService
 from b2t.web import create_app
 
 
 class FakePipeline:
-    def __init__(self, tmp_path: Path, provider: str, model: str) -> None:
-        self.tmp_path = tmp_path
+    def __init__(self, settings: Settings, provider: str, model: str) -> None:
+        self.settings = settings
         self.provider = provider
         self.model = model
 
-    def transcribe(self, source: str, *, prompt: str | None = None, output: Path | None = None) -> TranscriptResult:
-        transcript_path = self.tmp_path / "demo.txt"
-        metadata_path = self.tmp_path / "demo.json"
+    def transcribe(self, source: str, *, prompt: str | None = None, output: Path | None = None, progress=None) -> TranscriptResult:
+        transcript_path = self.settings.transcripts_original_dir / "demo.txt"
+        metadata_path = self.settings.metadata_dir / "demo.json"
         transcript_path.write_text("demo text\n", encoding="utf-8")
         metadata_path.write_text("{}", encoding="utf-8")
+        if progress is not None:
+            progress.running("transcribing", message="transcribing", stage_progress=1.0)
         return TranscriptResult(
             source=SourceRef(raw_input=source, kind="bilibili", display_name="demo", url=source, bv="BV1xx411c7XD"),
             engine=self.provider,
             model=self.model,
             text="demo text",
-            audio_path=self.tmp_path / "demo.wav",
+            audio_path=self.settings.audio_dir / "demo.wav",
             transcript_path=transcript_path,
             metadata_path=metadata_path,
-            video_path=self.tmp_path / "demo.mp4",
+            video_path=self.settings.downloads_dir / "demo.mp4",
+            metadata={"language": "zh", "download": {"title": "Demo Title"}},
         )
 
 
-def test_index_page_renders_form(tmp_path: Path) -> None:
+def build_test_app(tmp_path: Path):
+    settings = Settings.from_workspace(tmp_path / ".b2t")
+    database = AppDatabase(settings)
+    library = WorkspaceLibrary(settings, database)
+    service = TaskService(
+        database=database,
+        library=library,
+        pipeline_factory=lambda provider, model: FakePipeline(settings, provider, model),
+    )
     app = create_app(
-        lambda provider, model: FakePipeline(tmp_path, provider, model),
+        task_service=service,
+        library=library,
+        database=database,
         default_provider="sensevoice",
         default_model="base",
+        language="zh-CN",
     )
+    return app, service, database, library
+
+
+def test_index_page_renders_form_and_video_list(tmp_path: Path) -> None:
+    app, _, _, _ = build_test_app(tmp_path)
     client = TestClient(app)
 
     response = client.get("/")
     assert response.status_code == 200
-    assert "BV / URL / 本地路径" in response.text
-    assert '<option value="sensevoice" selected>' in response.text
-    assert 'value="base"' in response.text
+    assert "Bilibili 视频转文字" in response.text
+    assert 'value="sensevoice"' in response.text
+    assert "Videos" in response.text
 
 
-def test_transcribe_form_renders_result(tmp_path: Path) -> None:
-    app = create_app(lambda provider, model: FakePipeline(tmp_path, provider, model))
+def test_api_transcribe_returns_task_and_video_can_be_edited(tmp_path: Path) -> None:
+    app, service, database, library = build_test_app(tmp_path)
     client = TestClient(app)
 
     response = client.post(
-        "/transcribe",
-        data={"source": "https://www.bilibili.com/video/BV1xx411c7XD", "provider": "sensevoice", "model": "tiny", "prompt": ""},
+        "/api/tasks/transcribe",
+        json={
+            "source": "https://www.bilibili.com/video/BV1xx411c7XD",
+            "provider": "sensevoice",
+            "model": "tiny",
+            "prompt": "",
+        },
     )
     assert response.status_code == 200
-    assert "转写完成" in response.text
-    assert "demo text" in response.text
-    assert "sensevoice" in response.text
-    assert "tiny" in response.text
+    task_id = response.json()["task_id"]
 
+    task = service.wait_for_task(task_id)
+    assert task.video_id is not None
 
-def test_index_page_supports_english_language(tmp_path: Path) -> None:
-    app = create_app(
-        lambda provider, model: FakePipeline(tmp_path, provider, model),
-        default_provider="whisper",
-        default_model="small",
-        language="en-US",
+    video_response = client.get("/api/videos")
+    assert video_response.status_code == 200
+    assert len(video_response.json()["items"]) == 1
+
+    transcript_response = client.get(f"/api/videos/{task.video_id}/transcript")
+    assert transcript_response.status_code == 200
+    assert transcript_response.json()["text"] == "demo text\n"
+
+    update_response = client.put(
+        f"/api/videos/{task.video_id}/transcript",
+        json={"text": "edited text"},
     )
+    assert update_response.status_code == 200
+
+    transcript_after = client.get(f"/api/videos/{task.video_id}/transcript")
+    assert transcript_after.json()["text"] == "edited text\n"
+
+
+def test_api_supports_categories_tags_and_versions(tmp_path: Path) -> None:
+    app, service, _, _ = build_test_app(tmp_path)
     client = TestClient(app)
 
-    response = client.get("/")
-    assert response.status_code == 200
-    assert "BV / URL / local path" in response.text
-    assert "Start" in response.text
+    task_id = client.post(
+        "/api/tasks/transcribe",
+        json={
+            "source": "https://www.bilibili.com/video/BV1xx411c7XD",
+            "provider": "whisper",
+            "model": "small",
+            "prompt": "",
+        },
+    ).json()["task_id"]
+    task = service.wait_for_task(task_id)
+    assert task.video_id is not None
+
+    category = client.post("/api/categories", json={"name": "Research"}).json()
+    assert category["name"] == "Research"
+    tag = client.post("/api/tags", json={"name": "important"}).json()
+    assert tag["name"] == "important"
+
+    assign_category = client.post(
+        f"/api/videos/{task.video_id}/category",
+        json={"category_id": category["id"]},
+    )
+    assert assign_category.status_code == 200
+
+    assign_tag = client.post(
+        f"/api/videos/{task.video_id}/tags",
+        json={"tag_id": tag["id"]},
+    )
+    assert assign_tag.status_code == 200
+
+    versions = client.get(f"/api/videos/{task.video_id}/versions").json()["items"]
+    assert len(versions) == 1
+
+    client.put(f"/api/videos/{task.video_id}/transcript", json={"text": "second version"})
+    versions = client.get(f"/api/videos/{task.video_id}/versions").json()["items"]
+    assert len(versions) == 2
+
+    activate = client.post(f"/api/videos/{task.video_id}/versions/{versions[-1]['id']}/activate")
+    assert activate.status_code == 200

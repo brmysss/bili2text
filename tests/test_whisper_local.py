@@ -1,4 +1,8 @@
-from b2t.transcribers.whisper_local import build_whisper_import_error_message
+from b2t.progress import ProgressReporter
+from b2t.transcribers.whisper_local import (
+    WhisperProgressTqdm,
+    build_whisper_import_error_message,
+)
 
 
 def test_build_whisper_import_error_message_reports_missing_install() -> None:
@@ -17,3 +21,16 @@ def test_build_whisper_import_error_message_reports_broken_environment() -> None
 
     assert "Whisper is installed, but the Python environment looks broken." in message
     assert ".venv" in message
+
+
+def test_whisper_progress_tqdm_reports_fractional_progress() -> None:
+    events = []
+    reporter = ProgressReporter("task-1", callback=events.append)
+    bar = WhisperProgressTqdm(reporter, total=100, disable=False)
+
+    with bar:
+        bar.update(25)
+        bar.update(25)
+
+    assert events[-1].stage == "transcribing"
+    assert round(events[-1].percent, 3) == 0.725

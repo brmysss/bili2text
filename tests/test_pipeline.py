@@ -3,7 +3,7 @@ from pathlib import Path
 from b2t.config import Settings
 from b2t.downloaders.base import Downloader
 from b2t.models import DownloadResult, SourceRef
-from b2t.pipeline import B2TPipeline
+from b2t.pipeline import B2TPipeline, _parse_ffmpeg_progress_seconds
 from b2t.transcribers.base import Transcriber
 
 
@@ -77,3 +77,9 @@ def test_pipeline_respects_custom_output_file(tmp_path: Path) -> None:
     result = pipeline.transcribe(str(audio_path), output=output_path)
     assert result.transcript_path == output_path.with_suffix(".txt")
     assert result.transcript_path.exists()
+
+
+def test_parse_ffmpeg_progress_seconds_supports_us_and_ms() -> None:
+    assert _parse_ffmpeg_progress_seconds("out_time_ms=2500000") == 2.5
+    assert _parse_ffmpeg_progress_seconds("out_time_us=4000000") == 4.0
+    assert _parse_ffmpeg_progress_seconds("progress=continue") is None

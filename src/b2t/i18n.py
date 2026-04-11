@@ -38,6 +38,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "transcript_saved": "转写结果已保存: {path}",
         "metadata_saved": "元数据已保存: {path}",
         "error_prefix": "出错了: {message}",
+        "task_submitted": "任务已创建: {task_id}",
 
         # ── Doctor ───────────────────────────────────────────
         "doctor_yt_dlp": "yt-dlp",
@@ -159,6 +160,26 @@ MESSAGES: dict[str, dict[str, str]] = {
         "web_result_audio": "音频",
         "web_result_video": "视频",
         "web_result_text": "文本内容",
+
+        # ── Progress ─────────────────────────────────────────
+        "progress_stage_queued": "已排队",
+        "progress_stage_preparing": "准备任务",
+        "progress_stage_downloading": "下载视频",
+        "progress_stage_extracting_audio": "提取音频",
+        "progress_stage_transcribing": "转写中",
+        "progress_stage_writing_outputs": "写入文件",
+        "progress_stage_indexing": "更新索引",
+        "progress_stage_completed": "已完成",
+        "progress_stage_failed": "失败",
+        "progress_message_queued": "等待执行",
+        "progress_message_preparing": "正在准备环境和输入",
+        "progress_message_downloading": "正在下载视频",
+        "progress_message_download_finished": "下载完成",
+        "progress_message_extracting_audio": "正在提取音频",
+        "progress_message_transcribing": "正在进行语音识别",
+        "progress_message_writing_outputs": "正在写入文本和元数据",
+        "progress_message_indexing": "正在更新本地索引",
+        "progress_message_completed": "任务完成",
     },
     "en-US": {
         # ── CLI help ─────────────────────────────────────────
@@ -187,6 +208,7 @@ MESSAGES: dict[str, dict[str, str]] = {
         "transcript_saved": "Transcript saved: {path}",
         "metadata_saved": "Metadata saved: {path}",
         "error_prefix": "Error: {message}",
+        "task_submitted": "Task created: {task_id}",
 
         # ── Doctor ───────────────────────────────────────────
         "doctor_yt_dlp": "yt-dlp",
@@ -308,6 +330,26 @@ MESSAGES: dict[str, dict[str, str]] = {
         "web_result_audio": "Audio",
         "web_result_video": "Video",
         "web_result_text": "Transcript Text",
+
+        # ── Progress ─────────────────────────────────────────
+        "progress_stage_queued": "Queued",
+        "progress_stage_preparing": "Preparing",
+        "progress_stage_downloading": "Downloading",
+        "progress_stage_extracting_audio": "Extracting Audio",
+        "progress_stage_transcribing": "Transcribing",
+        "progress_stage_writing_outputs": "Writing Outputs",
+        "progress_stage_indexing": "Indexing",
+        "progress_stage_completed": "Completed",
+        "progress_stage_failed": "Failed",
+        "progress_message_queued": "Waiting to start",
+        "progress_message_preparing": "Preparing runtime and input",
+        "progress_message_downloading": "Downloading the video",
+        "progress_message_download_finished": "Download complete",
+        "progress_message_extracting_audio": "Extracting audio",
+        "progress_message_transcribing": "Running speech recognition",
+        "progress_message_writing_outputs": "Writing transcript and metadata",
+        "progress_message_indexing": "Updating the local index",
+        "progress_message_completed": "Task completed",
     },
 }
 

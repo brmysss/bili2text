@@ -107,29 +107,77 @@ class B2TPipeline:
         if not ffmpeg:
             raise RuntimeError("ffmpeg is required to extract audio but was not found on PATH")
 
-        if progress is not None:
-            progress.running("extracting_audio", message="extracting_audio", indeterminate=True)
         audio_path = self.settings.audio_dir / f"{stem}.wav"
-        result = subprocess.run(
-            [
-                ffmpeg,
-                "-y",
-                "-i",
-                str(video_path),
-                "-vn",
-                "-acodec",
-                "pcm_s16le",
-                "-ar",
-                "16000",
-                "-ac",
-                "1",
-                str(audio_path),
-            ],
-            capture_output=True,
+        if progress is None:
+            result = subprocess.run(
+                [
+                    ffmpeg,
+                    "-y",
+                    "-i",
+                    str(video_path),
+                    "-vn",
+                    "-acodec",
+                    "pcm_s16le",
+                    "-ar",
+                    "16000",
+                    "-ac",
+                    "1",
+                    str(audio_path),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                stderr = result.stderr.strip() or "unknown ffmpeg error"
+                raise RuntimeError(f"ffmpeg failed to extract audio: {stderr}")
+            return audio_path
+
+        duration = _probe_media_duration_seconds(video_path)
+        progress.running(
+            "extracting_audio",
+            message="extracting_audio",
+            stage_progress=0.0 if duration else None,
+            indeterminate=duration is None,
+        )
+        command = [
+            ffmpeg,
+            "-y",
+            "-i",
+            str(video_path),
+            "-vn",
+            "-acodec",
+            "pcm_s16le",
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            "-progress",
+            "pipe:1",
+            "-nostats",
+            str(audio_path),
+        ]
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        if result.returncode != 0:
-            stderr = result.stderr.strip() or "unknown ffmpeg error"
+        assert process.stdout is not None
+        for line in process.stdout:
+            parsed_seconds = _parse_ffmpeg_progress_seconds(line.strip())
+            if parsed_seconds is None or duration in (None, 0):
+                continue
+            progress.running(
+                "extracting_audio",
+                message="extracting_audio",
+                stage_progress=min(1.0, parsed_seconds / duration),
+            )
+        stderr_text = ""
+        if process.stderr is not None:
+            stderr_text = process.stderr.read()
+        returncode = process.wait()
+        if returncode != 0:
+            stderr = stderr_text.strip() or "unknown ffmpeg error"
             raise RuntimeError(f"ffmpeg failed to extract audio: {stderr}")
         return audio_path
 
@@ -149,3 +197,44 @@ class B2TPipeline:
         if transcript_path.is_relative_to(self.settings.workspace_root):
             return self.settings.metadata_dir / f"{transcript_path.stem}.json"
         return transcript_path.with_suffix(".json")
+
+
+def _parse_ffmpeg_progress_seconds(line: str) -> float | None:
+    if line.startswith("out_time_ms="):
+        try:
+            return int(line.split("=", 1)[1]) / 1_000_000
+        except ValueError:
+            return None
+    if line.startswith("out_time_us="):
+        try:
+            return int(line.split("=", 1)[1]) / 1_000_000
+        except ValueError:
+            return None
+    return None
+
+
+def _probe_media_duration_seconds(video_path: Path) -> float | None:
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return None
+    result = subprocess.run(
+        [
+            ffprobe,
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(video_path),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    try:
+        value = float((result.stdout or "").strip())
+    except ValueError:
+        return None
+    return value if value > 0 else None

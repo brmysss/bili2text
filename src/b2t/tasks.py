@@ -34,6 +34,7 @@ class TaskService:
         provider: str,
         model: str,
         prompt: str = "",
+        listener: ProgressCallback | None = None,
     ) -> TaskRecord:
         task = self.database.create_task(
             kind="transcription",
@@ -41,6 +42,8 @@ class TaskService:
             provider=provider,
             model=model,
         )
+        if listener is not None:
+            self.add_listener(task.id, listener)
         reporter = ProgressReporter(task.id, callback=self._handle_progress)
         reporter.queued("queued")
         future = self.executor.submit(self._run_transcription, task.id, source, provider, model, prompt)

@@ -58,6 +58,7 @@ source = { editable = "." }
 dependencies = [
     { name = "inquirerpy" },
     { name = "rich" },
+    { name = "tqdm" },
     { name = "typer" },
     { name = "yt-dlp" },
 ]
@@ -108,6 +109,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'volcengine'", specifier = ">=2.32.3" },
     { name = "rich", specifier = ">=13.9.4" },
     { name = "torch", marker = "extra == 'sensevoice'", specifier = ">=2.5.0" },
+    { name = "tqdm", specifier = ">=4.67.3" },
     { name = "typer", specifier = ">=0.12.5" },
     { name = "uvicorn", marker = "extra == 'server'", specifier = ">=0.34.0" },
     { name = "uvicorn", marker = "extra == 'web'", specifier = ">=0.34.0" },

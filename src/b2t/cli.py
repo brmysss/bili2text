@@ -9,9 +9,13 @@ import typer
 
 from b2t import __version__
 from b2t.bootstrap import ensure_bootstrap, run_bootstrap
+from b2t.cli_progress import TqdmTaskRenderer
 from b2t.config import Settings
+from b2t.database import AppDatabase
 from b2t.factory import build_pipeline
 from b2t.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, dependency_sync_guidance, resolve_language, tr
+from b2t.library import WorkspaceLibrary
+from b2t.tasks import TaskService
 from b2t.user_config import AppConfig
 
 
@@ -48,15 +52,35 @@ def create_app(language: str = DEFAULT_LANGUAGE) -> typer.Typer:
         """Download or open media, then transcribe it with the selected provider."""
         try:
             settings, config = _load_runtime(workspace=workspace, provider=provider, model=model)
-            pipeline = build_pipeline(settings=settings, config=config, provider=provider, model=model)
-            result = pipeline.transcribe(source, prompt=prompt or None, output=output)
+            renderer = TqdmTaskRenderer(config.language)
+            service = _build_task_service(
+                settings=settings,
+                config=config,
+                provider=provider,
+                model=model,
+            )
+            task = service.submit_transcription(
+                source=source,
+                provider=provider or config.default_provider,
+                model=model or config.default_model,
+                prompt=prompt,
+                listener=renderer,
+            )
+            typer.echo(tr(config.language, "task_submitted", task_id=task.id))
+            task = service.wait_for_task(task.id)
+            if task.video_id is None:
+                raise RuntimeError("transcription completed but no video record was created")
+            video = service.database.get_video(task.video_id)
+            if video is None:
+                raise RuntimeError(f"video record not found: {task.video_id}")
+            transcript = service.library.load_active_transcript(task.video_id)
         except Exception as exc:
             message = tr(_detect_preferred_language(workspace), "error_prefix", message=exc)
             typer.secho(message, err=True, fg=typer.colors.RED)
             raise typer.Exit(code=1) from exc
 
-        typer.echo(tr(config.language, "transcript_saved", path=result.transcript_path))
-        typer.echo(tr(config.language, "metadata_saved", path=result.metadata_path))
+        typer.echo(tr(config.language, "transcript_saved", path=transcript["file_path"]))
+        typer.echo(tr(config.language, "metadata_saved", path=video["metadata_path"]))
 
     @app.command("doctor", help=tr(language, "cmd_doctor_help"))
     @app.command("diag", hidden=True)
@@ -225,13 +249,11 @@ def _run_server(*, host: str, port: int, provider: str | None, model: str | None
     from b2t.web import create_app
 
     settings, config = _load_runtime(workspace=workspace, provider=provider, model=model)
+    service = _build_task_service(settings=settings, config=config, provider=provider, model=model)
     app_instance = create_app(
-        lambda selected_provider, selected_model: build_pipeline(
-            settings=settings,
-            config=config,
-            provider=selected_provider or provider or config.default_provider,
-            model=selected_model or model or config.default_model,
-        ),
+        task_service=service,
+        library=service.library,
+        database=service.database,
         default_provider=provider or config.default_provider,
         default_model=model or config.default_model,
         language=config.language,
@@ -248,6 +270,29 @@ def _detect_preferred_language(workspace: Path | None = None) -> str:
     if settings.config_path.exists():
         return AppConfig.load(settings).language
     return DEFAULT_LANGUAGE
+
+
+def _build_task_service(
+    *,
+    settings: Settings,
+    config: AppConfig,
+    provider: str | None = None,
+    model: str | None = None,
+) -> TaskService:
+    database = AppDatabase(settings)
+    library = WorkspaceLibrary(settings, database)
+    service = TaskService(
+        database=database,
+        library=library,
+        pipeline_factory=lambda selected_provider, selected_model: build_pipeline(
+            settings=settings,
+            config=config,
+            provider=selected_provider or provider or config.default_provider,
+            model=selected_model or model or config.default_model,
+        ),
+    )
+    service.ensure_indexed()
+    return service
 
 
 app = create_app(DEFAULT_LANGUAGE)
