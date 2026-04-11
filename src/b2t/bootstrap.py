@@ -199,6 +199,7 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
     ).execute()
 
     # ── 4. Configure each selected provider ──────────────────
+    selected_whisper_model: str | None = None
     for provider in selected_providers:
         console.print()
         console.rule(f"[bold cyan]{tr(lang, f'provider_{provider}_name')}[/bold cyan]")
@@ -206,7 +207,7 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
         console.print()
 
         if provider == "whisper":
-            _configure_whisper(config, lang)
+            selected_whisper_model = _configure_whisper(config, lang)
         elif provider == "sensevoice":
             _configure_sensevoice(config, lang)
         elif provider == "volcengine":
@@ -227,6 +228,8 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
             choices=default_choices,
             default=config.default_provider if config.default_provider in selected_providers else selected_providers[0],
         ).execute()
+    if config.default_provider == "whisper" and selected_whisper_model:
+        config.default_model = selected_whisper_model
 
     # ── Save and show next steps ─────────────────────────────
     config.save(settings)
@@ -256,7 +259,7 @@ def ensure_bootstrap(*, settings: Settings, allow_prompt: bool = True) -> AppCon
 # ── Provider configuration flows ─────────────────────────────
 
 
-def _configure_whisper(config: AppConfig, lang: str) -> None:
+def _configure_whisper(config: AppConfig, lang: str) -> str:
     whisper_model = inquirer.select(
         message=tr(lang, "bootstrap_whisper_model_prompt"),
         choices=[
@@ -268,9 +271,7 @@ def _configure_whisper(config: AppConfig, lang: str) -> None:
         ],
         default=config.default_model if config.default_model in ("tiny", "base", "small", "medium", "large") else "small",
     ).execute()
-    # Only set default_model if whisper is (or becomes) default
-    if config.default_provider == "whisper" or len(config.enabled_providers) == 1:
-        config.default_model = whisper_model
+    return whisper_model
 
 
 def _configure_sensevoice(config: AppConfig, lang: str) -> None:
