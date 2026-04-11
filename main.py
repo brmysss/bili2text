@@ -1,15 +1,22 @@
-from utils import download_video
-from exAudio import *
-from speech2text import *
+from pathlib import Path
+import sys
 
-# Main文件是作者用来测试的，请运行window.py
+ROOT = Path(__file__).resolve().parent
+SRC = ROOT / "src"
+if str(SRC) not in sys.path:
+    sys.path.insert(0, str(SRC))
 
-av = input("请输入BV号：")
-filename = download_video(av[2:])
-foldername = process_audio_split(filename)
+try:
+    from b2t.cli import main
+except ModuleNotFoundError as exc:
+    missing = exc.name or "dependency"
+    from b2t.i18n import dependency_sync_guidance
+
+    def main() -> None:
+        raise SystemExit(
+            f"Missing dependency '{missing}'. {dependency_sync_guidance('en-US')}"
+        )
 
 
-load_whisper("small")
-run_analysis(foldername, prompt="以下是普通话的句子。")
-output_path = f"outputs/{foldername}.txt"
-print("转换完成！", output_path)
+if __name__ == "__main__":
+    main()
