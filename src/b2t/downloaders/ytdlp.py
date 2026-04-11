@@ -11,7 +11,13 @@ from b2t.models import DownloadResult, SourceRef
 class YtDlpDownloader(Downloader):
     name = "yt-dlp"
 
-    def download(self, source: SourceRef, settings: Settings) -> DownloadResult:
+    def download(
+        self,
+        source: SourceRef,
+        settings: Settings,
+        *,
+        progress=None,
+    ) -> DownloadResult:
         if source.kind != "bilibili":
             raise ValueError("yt-dlp downloader only supports bilibili sources")
 
@@ -33,6 +39,23 @@ class YtDlpDownloader(Downloader):
             "quiet": True,
             "no_warnings": True,
         }
+        if progress is not None:
+            def progress_hook(data: dict[str, Any]) -> None:
+                status = data.get("status")
+                if status == "downloading":
+                    total = data.get("total_bytes") or data.get("total_bytes_estimate") or 0
+                    downloaded = data.get("downloaded_bytes") or 0
+                    stage_progress = (downloaded / total) if total else None
+                    progress.running(
+                        "downloading",
+                        message="downloading",
+                        stage_progress=stage_progress,
+                        indeterminate=stage_progress is None,
+                    )
+                elif status == "finished":
+                    progress.running("downloading", message="download_finished", stage_progress=1.0)
+            ydl_opts["progress_hooks"] = [progress_hook]
+            ydl_opts["noprogress"] = False
 
         with YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(source.url or f"https://www.bilibili.com/video/{source.bv}", download=True)

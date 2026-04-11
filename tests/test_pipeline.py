@@ -13,7 +13,7 @@ class FakeDownloader(Downloader):
     def __init__(self, video_path: Path) -> None:
         self.video_path = video_path
 
-    def download(self, source: SourceRef, settings: Settings) -> DownloadResult:
+    def download(self, source: SourceRef, settings: Settings, *, progress=None) -> DownloadResult:
         return DownloadResult(
             source=source,
             video_path=self.video_path,
@@ -25,7 +25,7 @@ class FakeDownloader(Downloader):
 class FakeTranscriber(Transcriber):
     name = "fake-whisper"
 
-    def transcribe(self, audio_path: Path, *, prompt: str | None = None) -> dict[str, str]:
+    def transcribe(self, audio_path: Path, *, prompt: str | None = None, progress=None) -> dict[str, str]:
         assert audio_path.exists()
         return {
             "text": "hello from b2t",
@@ -35,7 +35,7 @@ class FakeTranscriber(Transcriber):
 
 
 class PipelineUnderTest(B2TPipeline):
-    def _extract_audio(self, video_path: Path, stem: str) -> Path:
+    def _extract_audio(self, video_path: Path, stem: str, progress=None) -> Path:
         audio_path = self.settings.audio_dir / f"{stem}.wav"
         audio_path.parent.mkdir(parents=True, exist_ok=True)
         audio_path.write_bytes(b"wav")

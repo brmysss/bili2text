@@ -10,6 +10,7 @@ from b2t.config import Settings
 from b2t.downloaders.base import Downloader
 from b2t.inputs import parse_source, safe_stem
 from b2t.models import DownloadResult, TranscriptResult
+from b2t.progress import ProgressReporter
 from b2t.transcribers.base import Transcriber
 
 
@@ -31,19 +32,26 @@ class B2TPipeline:
         *,
         prompt: str | None = None,
         output: Path | None = None,
+        progress: ProgressReporter | None = None,
     ) -> TranscriptResult:
         self.settings.ensure_directories()
+        if progress is not None:
+            progress.running("preparing", message="preparing")
         source = parse_source(source_input)
         downloaded: DownloadResult | None = None
 
         if source.kind == "bilibili":
-            downloaded = self.downloader.download(source, self.settings)
-            audio_path = self._extract_audio(downloaded.video_path, safe_stem(downloaded.title or source.display_name))
+            downloaded = self.downloader.download(source, self.settings, progress=progress)
+            audio_path = self._extract_audio(
+                downloaded.video_path,
+                safe_stem(downloaded.title or source.display_name),
+                progress=progress,
+            )
             base_name = downloaded.title or source.display_name
             video_path = downloaded.video_path
         elif source.kind == "video":
             assert source.path is not None
-            audio_path = self._extract_audio(source.path, safe_stem(source.display_name))
+            audio_path = self._extract_audio(source.path, safe_stem(source.display_name), progress=progress)
             base_name = source.display_name
             video_path = source.path
         else:
@@ -52,13 +60,15 @@ class B2TPipeline:
             base_name = source.display_name
             video_path = None
 
-        transcription = self.transcriber.transcribe(audio_path, prompt=prompt)
+        transcription = self.transcriber.transcribe(audio_path, prompt=prompt, progress=progress)
         text = transcription.get("text", "").strip()
         if not text:
             raise RuntimeError("transcriber returned an empty transcript")
 
+        if progress is not None:
+            progress.running("writing_outputs", message="writing_outputs", indeterminate=True)
         transcript_path = self._resolve_output_path(base_name, output)
-        metadata_path = transcript_path.with_suffix(".json")
+        metadata_path = self._resolve_metadata_path(transcript_path)
         transcript_path.parent.mkdir(parents=True, exist_ok=True)
         transcript_path.write_text(text + "\n", encoding="utf-8")
 
@@ -92,11 +102,13 @@ class B2TPipeline:
             metadata=metadata,
         )
 
-    def _extract_audio(self, video_path: Path, stem: str) -> Path:
+    def _extract_audio(self, video_path: Path, stem: str, progress: ProgressReporter | None = None) -> Path:
         ffmpeg = shutil.which("ffmpeg")
         if not ffmpeg:
             raise RuntimeError("ffmpeg is required to extract audio but was not found on PATH")
 
+        if progress is not None:
+            progress.running("extracting_audio", message="extracting_audio", indeterminate=True)
         audio_path = self.settings.audio_dir / f"{stem}.wav"
         result = subprocess.run(
             [
@@ -124,7 +136,7 @@ class B2TPipeline:
     def _resolve_output_path(self, base_name: str, output: Path | None) -> Path:
         if output is None:
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            return self.settings.transcripts_dir / f"{safe_stem(base_name)}-{timestamp}.txt"
+            return self.settings.transcripts_original_dir / f"{safe_stem(base_name)}-{timestamp}.txt"
 
         output = output.expanduser()
         if output.suffix.lower() != ".txt":
@@ -132,3 +144,8 @@ class B2TPipeline:
                 return output / f"{safe_stem(base_name)}.txt"
             return output.with_suffix(".txt")
         return output
+
+    def _resolve_metadata_path(self, transcript_path: Path) -> Path:
+        if transcript_path.is_relative_to(self.settings.workspace_root):
+            return self.settings.metadata_dir / f"{transcript_path.stem}.json"
+        return transcript_path.with_suffix(".json")

@@ -16,8 +16,16 @@ class LocalWhisperTranscriber(Transcriber):
         self.device = device
         self._model: Any | None = None
 
-    def transcribe(self, audio_path: Path, *, prompt: str | None = None) -> dict[str, Any]:
+    def transcribe(
+        self,
+        audio_path: Path,
+        *,
+        prompt: str | None = None,
+        progress=None,
+    ) -> dict[str, Any]:
         model = self._ensure_model()
+        if progress is not None:
+            progress.running("transcribing", message="transcribing", indeterminate=True)
         transcribe_options: dict[str, Any] = {
             "initial_prompt": prompt or None,
             # `verbose=None` keeps the current Whisper release quiet on both text and frame progress.

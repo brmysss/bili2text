@@ -28,7 +28,15 @@ class VolcengineFlashTranscriber(Transcriber):
         self.model_name = model_name
         self.use_itn = use_itn
 
-    def transcribe(self, audio_path: Path, *, prompt: str | None = None) -> dict[str, Any]:
+    def transcribe(
+        self,
+        audio_path: Path,
+        *,
+        prompt: str | None = None,
+        progress=None,
+    ) -> dict[str, Any]:
+        if progress is not None:
+            progress.running("transcribing", message="transcribing", indeterminate=True)
         try:
             import requests
         except ImportError as exc:
