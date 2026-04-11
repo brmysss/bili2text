@@ -33,7 +33,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "opt_language_help": "语言代码，如 zh-CN、en-US。",
 
         # ── Runtime messages ─────────────────────────────────
-        "missing_dependency": "缺少依赖 '{name}'，请运行 `uv sync --extra whisper --extra web` 安装。",
+        "missing_dependency": "缺少依赖 '{name}'。{guidance}",
+        "dependency_sync_guidance": "请把所有需要的 extras 一次性写进同一条 `uv sync` 命令里，例如 `uv sync --extra whisper --extra web`；如果之前已经在 Bootstrap 里选过，直接运行 `uv run bili2text bootstrap --sync-only`。",
         "transcript_saved": "转写结果已保存: {path}",
         "metadata_saved": "元数据已保存: {path}",
         "error_prefix": "出错了: {message}",
@@ -181,7 +182,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "opt_language_help": "Language code, e.g. zh-CN or en-US.",
 
         # ── Runtime messages ─────────────────────────────────
-        "missing_dependency": "Missing dependency '{name}'. Run `uv sync --extra whisper --extra web` to install.",
+        "missing_dependency": "Missing dependency '{name}'. {guidance}",
+        "dependency_sync_guidance": "Sync all required extras together in a single `uv sync` command, for example `uv sync --extra whisper --extra web`, or rerun `uv run bili2text bootstrap --sync-only`.",
         "transcript_saved": "Transcript saved: {path}",
         "metadata_saved": "Metadata saved: {path}",
         "error_prefix": "Error: {message}",
@@ -335,3 +337,7 @@ def tr(locale: str | None, key: str, **kwargs: Any) -> str:
     lang = normalize_language(locale)
     template = MESSAGES.get(lang, MESSAGES[DEFAULT_LANGUAGE]).get(key, key)
     return template.format(**kwargs)
+
+
+def dependency_sync_guidance(locale: str | None = None) -> str:
+    return tr(locale, "dependency_sync_guidance")

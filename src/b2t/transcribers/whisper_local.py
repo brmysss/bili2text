@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 from typing import Any
 
+from b2t.i18n import dependency_sync_guidance
 from b2t.transcribers.base import Transcriber
 
 
@@ -40,11 +42,28 @@ class LocalWhisperTranscriber(Transcriber):
         try:
             import whisper
         except ImportError as exc:
-            raise RuntimeError(
-                "Whisper support is not installed. Run `uv sync --extra whisper` with Python 3.12 or below."
-            ) from exc
+            raise RuntimeError(build_whisper_import_error_message()) from exc
 
         if self.device is None:
             self.device = "cuda" if whisper.torch.cuda.is_available() else "cpu"
         self._model = whisper.load_model(self.model_name, device=self.device)
         return self._model
+
+
+def build_whisper_import_error_message(*, whisper_available: bool | None = None) -> str:
+    if whisper_available is None:
+        whisper_available = importlib.util.find_spec("whisper") is not None
+
+    if whisper_available:
+        return (
+            "Whisper is installed, but the Python environment looks broken. "
+            "Recreate `.venv` and sync the required extras again. "
+            f"{dependency_sync_guidance('en-US')} "
+            "Whisper currently needs Python 3.12 or below."
+        )
+
+    return (
+        "Whisper support is not installed. "
+        f"{dependency_sync_guidance('en-US')} "
+        "Whisper currently needs Python 3.12 or below."
+    )

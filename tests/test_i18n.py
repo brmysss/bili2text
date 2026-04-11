@@ -1,4 +1,4 @@
-from b2t.i18n import normalize_language, tr
+from b2t.i18n import dependency_sync_guidance, normalize_language, tr
 
 
 def test_normalize_language_accepts_short_codes() -> None:
@@ -8,3 +8,11 @@ def test_normalize_language_accepts_short_codes() -> None:
 
 def test_translate_falls_back_to_default_language() -> None:
     assert tr("unknown", "web_submit") == "开始"
+
+
+def test_dependency_sync_guidance_mentions_combined_extras_and_bootstrap() -> None:
+    guidance = dependency_sync_guidance("en-US")
+
+    assert "all required extras together" in guidance
+    assert "uv sync --extra whisper --extra web" in guidance
+    assert "bootstrap --sync-only" in guidance

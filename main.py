@@ -10,10 +10,11 @@ try:
     from b2t.cli import main
 except ModuleNotFoundError as exc:
     missing = exc.name or "dependency"
+    from b2t.i18n import dependency_sync_guidance
 
     def main() -> None:
         raise SystemExit(
-            f"Missing dependency '{missing}'. Run `uv sync --extra whisper --extra web` first."
+            f"Missing dependency '{missing}'. {dependency_sync_guidance('en-US')}"
         )
 
 

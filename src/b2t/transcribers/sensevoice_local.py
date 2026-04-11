@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from b2t.i18n import dependency_sync_guidance
 from b2t.transcribers.base import Transcriber
 
 
@@ -22,7 +23,8 @@ class SenseVoiceSmallTranscriber(Transcriber):
             from funasr_onnx.utils.postprocess_utils import rich_transcription_postprocess
         except ImportError as exc:
             raise RuntimeError(
-                "SenseVoice support is not installed. Run `uv sync --extra sensevoice` first."
+                "SenseVoice support is not installed. "
+                f"{dependency_sync_guidance('en-US')}"
             ) from exc
 
         results = model(
@@ -54,7 +56,8 @@ class SenseVoiceSmallTranscriber(Transcriber):
             from funasr_onnx import SenseVoiceSmall
         except ImportError as exc:
             raise RuntimeError(
-                "SenseVoice support is not installed. Run `uv sync --extra sensevoice` first."
+                "SenseVoice support is not installed. "
+                f"{dependency_sync_guidance('en-US')}"
             ) from exc
 
         self._model = SenseVoiceSmall(str(self.model_dir))

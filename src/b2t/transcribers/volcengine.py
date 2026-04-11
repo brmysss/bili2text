@@ -4,6 +4,7 @@ import base64
 from pathlib import Path
 from typing import Any
 
+from b2t.i18n import dependency_sync_guidance
 from b2t.transcribers.base import Transcriber
 
 
@@ -32,7 +33,8 @@ class VolcengineFlashTranscriber(Transcriber):
             import requests
         except ImportError as exc:
             raise RuntimeError(
-                "Volcengine support is not installed. Run `uv sync --extra volcengine` first."
+                "Volcengine support is not installed. "
+                f"{dependency_sync_guidance('en-US')}"
             ) from exc
 
         headers = self._build_headers()

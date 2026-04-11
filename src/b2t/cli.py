@@ -11,7 +11,7 @@ from b2t import __version__
 from b2t.bootstrap import ensure_bootstrap, run_bootstrap
 from b2t.config import Settings
 from b2t.factory import build_pipeline
-from b2t.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, resolve_language, tr
+from b2t.i18n import DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES, dependency_sync_guidance, resolve_language, tr
 from b2t.user_config import AppConfig
 
 
@@ -211,7 +211,12 @@ def _run_server(*, host: str, port: int, provider: str | None, model: str | None
         import uvicorn
     except ImportError as exc:
         typer.secho(
-            tr(selected_language, "missing_dependency", name="web/server"),
+            tr(
+                selected_language,
+                "missing_dependency",
+                name="web/server",
+                guidance=dependency_sync_guidance(selected_language),
+            ),
             err=True,
             fg=typer.colors.RED,
         )
