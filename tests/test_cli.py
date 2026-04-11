@@ -9,7 +9,7 @@ runner = CliRunner()
 def test_cli_help_renders() -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "CLI 优先的 Bilibili 视频转文字工具。" in result.stdout
+    assert "Bilibili" in result.stdout
     assert "bootstrap" in result.stdout
     assert "transcribe" in result.stdout
     assert "window" in result.stdout

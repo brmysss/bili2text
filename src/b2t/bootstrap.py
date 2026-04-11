@@ -87,30 +87,53 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
     config = AppConfig.load(settings)
     project_root = _find_project_root()
     if not interactive:
-        _sync_and_report(
+        _auto_sync(
             console=Console(),
             project_root=project_root,
             config=config,
             language=config.language,
-            save_settings=settings,
-            auto_confirm=True,
         )
         return config
 
     console = Console()
     lang = config.language or DEFAULT_LANGUAGE
 
-    console.print()
-    console.print(
-        Panel.fit(
-            tr(lang, "bootstrap_intro"),
-            title=tr(lang, "bootstrap_title"),
-            border_style="cyan",
+    # ── Check for existing configuration ────────────────────
+    has_existing = settings.config_path.exists()
+
+    if has_existing:
+        console.print()
+        console.print(
+            Panel.fit(
+                tr(lang, "bootstrap_current_summary",
+                   providers=", ".join(config.enabled_providers) or "—",
+                   features=", ".join(config.enabled_features) or "—",
+                   default=config.default_provider or "—"),
+                title=tr(lang, "bootstrap_current_title"),
+                border_style="cyan",
+            )
         )
-    )
-    console.print()
+        reconfigure = inquirer.confirm(
+            message=tr(lang, "bootstrap_reconfigure_prompt"),
+            default=False,
+        ).execute()
+        if not reconfigure:
+            console.print(f"[dim]{tr(lang, 'bootstrap_reconfigure_skipped')}[/dim]")
+            return config
+        console.print()
+    else:
+        console.print()
+        console.print(
+            Panel.fit(
+                tr(lang, "bootstrap_intro"),
+                title=tr(lang, "bootstrap_title"),
+                border_style="cyan",
+            )
+        )
 
     # ── 1. Language ──────────────────────────────────────────
+    console.print()
+    console.rule(f"[bold]{tr(lang, 'bootstrap_step_language')}[/bold]")
     language_choices = [
         {"name": f"{label}  ({code})", "value": code}
         for code, label in SUPPORTED_LANGUAGES.items()
@@ -124,6 +147,7 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
 
     # ── 2. Providers (checkbox) ──────────────────────────────
     console.print()
+    console.rule(f"[bold]{tr(lang, 'bootstrap_step_providers')}[/bold]")
     provider_choices = [
         {
             "name": f"whisper    — {tr(lang, 'provider_whisper_short')}",
@@ -151,6 +175,7 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
 
     # ── 3. Features (checkbox) ───────────────────────────────
     console.print()
+    console.rule(f"[bold]{tr(lang, 'bootstrap_step_features')}[/bold]")
     feature_choices = [
         {
             "name": f"web       — {tr(lang, 'feature_web_short')}",
@@ -189,6 +214,7 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
 
     # ── 5. Pick default provider ─────────────────────────────
     console.print()
+    console.rule(f"[bold]{tr(lang, 'bootstrap_step_default')}[/bold]")
     if len(selected_providers) == 1:
         config.default_provider = selected_providers[0]
     else:
@@ -202,12 +228,14 @@ def run_bootstrap(*, settings: Settings, interactive: bool = True) -> AppConfig:
             default=config.default_provider if config.default_provider in selected_providers else selected_providers[0],
         ).execute()
 
-    _sync_and_report(
+    # ── Save and show next steps ─────────────────────────────
+    config.save(settings)
+    _show_next_steps(
         console=console,
         project_root=project_root,
         config=config,
         language=lang,
-        save_settings=settings,
+        save_path=settings.config_path,
     )
     return config
 
@@ -295,68 +323,56 @@ def _configure_volcengine(config: AppConfig, lang: str) -> None:
     ).execute()
 
 
-def _sync_and_report(
+def _show_next_steps(
     *,
     console: Console,
     project_root: Path,
     config: AppConfig,
     language: str,
-    save_settings: Settings,
-    auto_confirm: bool = False,
+    save_path: Path,
 ) -> None:
     extras = collect_required_extras(
         providers=config.enabled_providers,
         features=config.enabled_features,
     )
     command = build_uv_sync_command(workspace=project_root, extras=extras)
-    features = ", ".join(config.enabled_features) if config.enabled_features else "cli"
-    extras_text = ", ".join(extras) if extras else "(none)"
+
     console.print()
-    console.print(
-        Panel.fit(
-            tr(
-                language,
-                "bootstrap_sync_summary",
-                providers=", ".join(config.enabled_providers),
-                features=features,
-                extras=extras_text,
-                command=" ".join(command),
-            ),
-            title=tr(language, "bootstrap_sync_summary_title"),
-            border_style="cyan",
-        )
+    console.rule(f"[bold]{tr(language, 'bootstrap_step_done')}[/bold]")
+    console.print(f"[green]{tr(language, 'bootstrap_saved', path=save_path)}[/green]")
+    if extras:
+        console.print()
+        console.print(tr(language, "bootstrap_manual_sync_hint"))
+        console.print()
+        console.print(f"  [bold]{' '.join(command)}[/bold]")
+    console.print()
+    console.print(tr(language, "bootstrap_finish"))
+
+
+def _auto_sync(
+    *,
+    console: Console,
+    project_root: Path,
+    config: AppConfig,
+    language: str,
+) -> None:
+    extras = collect_required_extras(
+        providers=config.enabled_providers,
+        features=config.enabled_features,
     )
+    result = sync_selected_environment(workspace=project_root, extras=extras)
 
-    should_sync = auto_confirm or inquirer.confirm(
-        message=tr(language, "bootstrap_sync_confirm"),
-        default=True,
-    ).execute()
-
-    if not should_sync:
-        config.save(save_settings)
-        console.print(f"[green]{tr(language, 'bootstrap_saved', path=save_settings.config_path)}[/green]")
-        console.print(f"[yellow]{tr(language, 'bootstrap_sync_skipped')}[/yellow]")
-        console.print(tr(language, "bootstrap_finish"))
-        return
-
-    result = sync_environment_for_config(project_root=project_root, config=config)
-    config.save(save_settings)
-
-    console.print(f"[green]{tr(language, 'bootstrap_saved', path=save_settings.config_path)}[/green]")
     if result.reason == "missing_uv":
         console.print(f"[yellow]{tr(language, 'bootstrap_uv_missing')}[/yellow]")
-        console.print(f"[yellow]{tr(language, 'bootstrap_partial_saved')}[/yellow]")
         console.print(tr(language, "bootstrap_uv_install_hint"))
         console.print(" ".join(result.command))
         return
 
     if result.ok:
         console.print(f"[green]{tr(language, 'bootstrap_sync_success')}[/green]")
-        console.print(tr(language, "bootstrap_finish"))
         return
 
     console.print(f"[red]{tr(language, 'bootstrap_sync_failed')}[/red]")
-    console.print(f"[yellow]{tr(language, 'bootstrap_partial_saved')}[/yellow]")
     if result.stdout.strip():
         console.print(result.stdout.strip())
     if result.stderr.strip():
