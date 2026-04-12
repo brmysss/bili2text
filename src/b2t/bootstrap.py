@@ -54,7 +54,7 @@ def sync_selected_environment(
     if not uv_available(which):
         return BootstrapEnvironmentResult(ok=False, reason="missing_uv", command=command)
     assert runner is not None
-    completed = runner(command, cwd=workspace, capture_output=True, text=True, check=False)
+    completed = runner(command, cwd=workspace, capture_output=True, encoding="utf-8", check=False)
     return BootstrapEnvironmentResult(
         ok=completed.returncode == 0,
         reason="ok" if completed.returncode == 0 else "sync_failed",

@@ -125,7 +125,7 @@ class B2TPipeline:
                     str(audio_path),
                 ],
                 capture_output=True,
-                text=True,
+                encoding="utf-8",
             )
             if result.returncode != 0:
                 stderr = result.stderr.strip() or "unknown ffmpeg error"
@@ -160,7 +160,7 @@ class B2TPipeline:
             command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True,
+            encoding="utf-8",
         )
         assert process.stdout is not None
         for line in process.stdout:
@@ -229,7 +229,7 @@ def _probe_media_duration_seconds(video_path: Path) -> float | None:
             str(video_path),
         ],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if result.returncode != 0:
         return None
