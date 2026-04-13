@@ -34,11 +34,14 @@ class YtDlpDownloader(Downloader):
             "format": "bv*+ba/b",
             "merge_output_format": "mp4",
             "noplaylist": True,
-            "outtmpl": str(settings.downloads_dir / "%(id)s.%(ext)s"),
+            "outtmpl": str(settings.downloads_dir / "%(id)s.%(playlist_index)02d.%(ext)s"),
             "noprogress": True,
             "quiet": True,
             "no_warnings": True,
         }
+        if source.page is not None:
+            ydl_opts["playlist_items"] = str(source.page)
+            ydl_opts["noplaylist"] = False
         if progress is not None:
             def progress_hook(data: dict[str, Any]) -> None:
                 status = data.get("status")

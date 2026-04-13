@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 from b2t.models import SourceRef
 
@@ -40,12 +40,14 @@ def parse_source(raw_input: str) -> SourceRef:
     if match:
         bv = match.group(1)
         url = value if _looks_like_url(value) else f"https://www.bilibili.com/video/{bv}"
+        page = _extract_page_from_url(url)
         return SourceRef(
             raw_input=value,
             kind="bilibili",
             display_name=bv,
             url=url,
             bv=bv,
+            page=page,
         )
 
     raise ValueError("source must be a BV id, a Bilibili URL, or an existing local audio/video file")
@@ -59,3 +61,16 @@ def safe_stem(value: str) -> str:
 def _looks_like_url(value: str) -> bool:
     parsed = urlparse(value)
     return bool(parsed.scheme and parsed.netloc)
+
+
+def _extract_page_from_url(url: str) -> int | None:
+    """Extract 'p' (page) parameter from URL query string."""
+    parsed = urlparse(url)
+    query_params = parse_qs(parsed.query)
+    p_values = query_params.get("p", [])
+    if p_values:
+        try:
+            return int(p_values[0])
+        except ValueError:
+            return None
+    return None

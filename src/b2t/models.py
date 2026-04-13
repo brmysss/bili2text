@@ -18,6 +18,7 @@ class SourceRef:
     url: str | None = None
     bv: str | None = None
     path: Path | None = None
+    page: int | None = None
 
 
 @dataclass(slots=True)
