@@ -30,18 +30,7 @@ class YtDlpDownloader(Downloader):
                 "yt-dlp is not installed. Run `uv sync` to install the core dependencies."
             ) from exc
 
-        ydl_opts: dict[str, Any] = {
-            "format": "bv*+ba/b",
-            "merge_output_format": "mp4",
-            "noplaylist": True,
-            "outtmpl": str(settings.downloads_dir / "%(id)s.%(playlist_index)02d.%(ext)s"),
-            "noprogress": True,
-            "quiet": True,
-            "no_warnings": True,
-        }
-        if source.page is not None:
-            ydl_opts["playlist_items"] = str(source.page)
-            ydl_opts["noplaylist"] = False
+        ydl_opts = self._build_ydl_opts(source, settings)
         if progress is not None:
             def progress_hook(data: dict[str, Any]) -> None:
                 status = data.get("status")
@@ -83,6 +72,22 @@ class YtDlpDownloader(Downloader):
                 "webpage_url": info.get("webpage_url") or source.url,
             },
         )
+
+    def _build_ydl_opts(self, source: SourceRef, settings: Settings) -> dict[str, Any]:
+        ydl_opts: dict[str, Any] = {
+            "format": "bv*+ba/b",
+            "merge_output_format": "mp4",
+            "noplaylist": True,
+            "outtmpl": str(settings.downloads_dir / "%(id)s.%(ext)s"),
+            "noprogress": True,
+            "quiet": True,
+            "no_warnings": True,
+        }
+        if source.page is not None:
+            ydl_opts["playlist_items"] = str(source.page)
+            ydl_opts["noplaylist"] = False
+            ydl_opts["outtmpl"] = str(settings.downloads_dir / "%(id)s.%(playlist_index)02d.%(ext)s")
+        return ydl_opts
 
     def _resolve_video_path(self, ydl: Any, info: dict[str, Any]) -> Path:
         requested_downloads = info.get("requested_downloads") or []

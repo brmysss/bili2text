@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from b2t.models import SourceRef
 
@@ -64,13 +64,14 @@ def _looks_like_url(value: str) -> bool:
 
 
 def _extract_page_from_url(url: str) -> int | None:
-    """Extract 'p' (page) parameter from URL query string."""
+    """Extract a valid 1-based 'p' (page) parameter from URL query string."""
     parsed = urlparse(url)
     query_params = parse_qs(parsed.query)
     p_values = query_params.get("p", [])
     if p_values:
         try:
-            return int(p_values[0])
+            page = int(p_values[0])
         except ValueError:
             return None
+        return page if page >= 1 else None
     return None
