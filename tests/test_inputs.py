@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from b2t.inputs import parse_source, safe_stem
 
 
@@ -14,6 +16,31 @@ def test_parse_bilibili_url_keeps_page_information() -> None:
     source = parse_source("https://www.bilibili.com/video/BV1xx411c7XD?p=2")
     assert source.kind == "bilibili"
     assert source.url == "https://www.bilibili.com/video/BV1xx411c7XD?p=2"
+
+
+def test_parse_bilibili_url_extracts_page_number() -> None:
+    source = parse_source("https://www.bilibili.com/video/BV1xx411c7XD?p=2")
+    assert source.kind == "bilibili"
+    assert source.page == 2
+
+
+def test_parse_bilibili_url_without_page_sets_page_to_none() -> None:
+    source = parse_source("https://www.bilibili.com/video/BV1xx411c7XD")
+    assert source.kind == "bilibili"
+    assert source.page is None
+
+
+def test_parse_bv_identifier_without_page_sets_page_to_none() -> None:
+    source = parse_source("BV1xx411c7XD")
+    assert source.kind == "bilibili"
+    assert source.page is None
+
+
+@pytest.mark.parametrize("page", ["0", "-1", "not-a-number"])
+def test_parse_bilibili_url_ignores_invalid_page_number(page: str) -> None:
+    source = parse_source(f"https://www.bilibili.com/video/BV1xx411c7XD?p={page}")
+    assert source.kind == "bilibili"
+    assert source.page is None
 
 
 def test_parse_local_audio_file(tmp_path: Path) -> None:
