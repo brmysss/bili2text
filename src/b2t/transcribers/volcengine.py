@@ -64,7 +64,7 @@ class VolcengineFlashTranscriber(Transcriber):
 
         audio_data = base64.b64encode(audio_path.read_bytes()).decode("utf-8")
         payload: dict[str, Any] = {
-            "user": {"uid": "bili2text"},
+            "user": {"uid": self._user_uid()},
             "audio": {
                 "format": audio_path.suffix.lstrip(".").lower() or "wav",
                 "data": audio_data,
@@ -134,3 +134,6 @@ class VolcengineFlashTranscriber(Transcriber):
                 "Content-Type": "application/json",
             }
         return {}
+
+    def _user_uid(self) -> str:
+        return self.api_key or self.app_key
